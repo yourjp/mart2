@@ -7,6 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
+  const APP_VERSION = 'v1.1 (2026-08-04)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -114,6 +115,7 @@
   const tabCostco = document.getElementById('tab-costco');
   const dashboardBoard = document.getElementById('dashboard-board');
   const dashboardMartLabel = document.getElementById('dashboard-mart-label');
+  const appVersionBadge = document.getElementById('app-version-badge');
   const totalAmountEl = document.getElementById('total-amount');
   const statusBadgeEl = document.getElementById('status-badge');
   const statusValueEl = document.getElementById('status-value');
@@ -353,6 +355,7 @@
       tabEmart.classList.remove('active');
     }
 
+    if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
     dashboardMartLabel.textContent = `${currentMart} 장보기`;
     btnResetSaved.textContent = `🔄 ${currentMart} 품목 초기화`;
     budgetInput.value = budget.toLocaleString();

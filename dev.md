@@ -2574,3 +2574,9 @@ README에는 다음 내용을 포함한다.
 - 사용자가 **"배포"**라고 명령하거나 요청할 경우, 이는 **GitHub 원격 저장소(`https://github.com/yourjp/mart.git`)의 `main` 브랜치로 최신 코드 스테이징, 커밋 및 푸시(`git push -u origin main`)를 실행하는 것**을 의미한다.
 - Agent는 배포 요청 수신 시 작업 내역을 커밋하고 GitHub에 자동 푸시를 완료한 후 상태 결과를 보고한다.
 
+
+## 25. 버전 및 수정 날짜 표시 규칙 (Version & Modified Date Policy)
+
+- 앱 코드를 수정할 때마다 `version x.x (YYYY-MM-DD)` 형식(예: `v1.1 (2026-08-04)`)으로 버전을 올리고 수정한 날짜를 함께 표기한다.
+- 전광판 우측 상단(`#app-version-badge`), `public/app.js`(`APP_VERSION`), `package.json`에 항상 동기화하여 시각적으로 보여준다.
+
