@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.5 (2026-08-04)';
+  const APP_VERSION = 'v1.6 (2026-08-04)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -288,11 +288,53 @@
       savedItems = createDefaultSavedItems(mart);
     }
 
-    // Calculate autoNameIndex for generated item names
     calculateAutoNameIndex();
-
-    // Save initial seeded data if newly generated
     saveState();
+
+    // Asynchronously sync from markdown file (품목_Emart.md / 품목_코스트코.md)
+    syncFromMarkdownFile(mart);
+  }
+
+  // --- Sync items from Markdown file API ---
+  async function syncFromMarkdownFile(mart) {
+    try {
+      const canonicalMart = (mart === '이마트' || mart === 'Emart') ? 'Emart' : mart;
+      const res = await fetch(`/api/items?mart=${canonicalMart}`);
+      if (!res.ok) return;
+
+      const data = await res.json();
+      if (data.success && Array.isArray(data.items) && data.items.length > 0) {
+        const itemMap = new Map(savedItems.map(i => [i.name.trim(), i]));
+
+        data.items.forEach(mdItem => {
+          const name = mdItem.name.trim();
+          const price = mdItem.lastPrice;
+
+          if (itemMap.has(name)) {
+            const existing = itemMap.get(name);
+            if (price !== null && price !== undefined) {
+              existing.lastPrice = price;
+            }
+          } else {
+            const newItem = {
+              name: name,
+              lastPrice: price,
+              useCount: price ? 1 : 0,
+              lastUsedAt: null,
+              isDefault: true,
+              priceHistory: price ? [{ price: price, usedAt: new Date().toISOString() }] : []
+            };
+            savedItems.push(newItem);
+            itemMap.set(name, newItem);
+          }
+        });
+
+        saveState();
+        render();
+      }
+    } catch (e) {
+      // Ignore in pure static mode
+    }
   }
 
   function saveState() {

@@ -50,8 +50,107 @@ app.post('/api/save-record', (req, res) => {
     console.error('Error saving record to 구매내역.md:', error);
     return res.status(500).json({ 
       success: false, 
-      message: '서버 파일 저기에 실패했습니다 (Vercel 등 서버리스 환경일 수 있습니다): ' + error.message 
+      message: '서버 파일 저장에 실패했습니다: ' + error.message 
     });
+  }
+});
+
+// Helper: Parse items from Markdown file
+function parseItemsFromMarkdown(filePath) {
+  if (!fs.existsSync(filePath)) return null;
+
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const lines = content.split('\n');
+    const items = [];
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('|') || trimmed.includes('품목명') || trimmed.includes(':---')) {
+        return;
+      }
+
+      const parts = trimmed.split('|').map(p => p.trim()).filter(Boolean);
+      if (parts.length >= 1) {
+        const name = parts[0];
+        let price = null;
+
+        if (parts.length >= 2) {
+          const rawPrice = parts[1].replace(/[^0-9]/g, '');
+          if (rawPrice) {
+            const parsed = parseInt(rawPrice, 10);
+            if (!isNaN(parsed) && parsed > 0) {
+              price = parsed;
+            }
+          }
+        }
+
+        if (name && name !== '-' && name !== '품목명') {
+          items.push({ name, lastPrice: price });
+        }
+      }
+    });
+
+    return items;
+  } catch (e) {
+    console.error('Error reading markdown items:', e);
+    return null;
+  }
+}
+
+// Helper: Write items to Markdown file
+function writeItemsToMarkdown(filePath, martName, items) {
+  try {
+    let md = `# ${martName} 품목 및 단가 리스트\n\n`;
+    md += `| 품목명 | 단가 |\n`;
+    md += `| :--- | ---: |\n`;
+
+    items.forEach(item => {
+      const priceStr = (item.lastPrice && item.lastPrice > 0) 
+        ? `${Number(item.lastPrice).toLocaleString()}원` 
+        : '-';
+      md += `| ${item.name} | ${priceStr} |\n`;
+    });
+
+    fs.writeFileSync(filePath, md, 'utf8');
+    return true;
+  } catch (e) {
+    console.error('Error writing markdown items:', e);
+    return false;
+  }
+}
+
+// GET /api/items - Read items for a specific mart from markdown file
+app.get('/api/items', (req, res) => {
+  const martName = req.query.mart || 'Emart';
+  const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : martName;
+  const fileName = `품목_${canonicalMart}.md`;
+  const filePath = path.join(__dirname, fileName);
+
+  const items = parseItemsFromMarkdown(filePath);
+  if (items && items.length > 0) {
+    return res.json({ success: true, martName: canonicalMart, items });
+  }
+
+  return res.json({ success: false, message: '품목 마크다운 파일이 없거나 내용이 비어 있습니다.' });
+});
+
+// POST /api/items - Save/Update items to markdown file
+app.post('/api/items', (req, res) => {
+  const { martName, items } = req.body;
+  if (!items || !Array.isArray(items)) {
+    return res.status(400).json({ success: false, message: '유효한 품목 리스트가 없습니다.' });
+  }
+
+  const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : (martName || 'Emart');
+  const fileName = `품목_${canonicalMart}.md`;
+  const filePath = path.join(__dirname, fileName);
+
+  const success = writeItemsToMarkdown(filePath, canonicalMart, items);
+  if (success) {
+    return res.json({ success: true, message: `${fileName} 파일에 품목이 성공적으로 저장되었습니다.` });
+  } else {
+    return res.status(500).json({ success: false, message: `${fileName} 저장 실패` });
   }
 });
 
