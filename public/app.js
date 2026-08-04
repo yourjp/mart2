@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3 (2026-08-04)';
+  const APP_VERSION = 'v1.4 (2026-08-04)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -43,7 +43,9 @@
     { name: '밀양 청양고추', lastPrice: 2980 },
     { name: '캠벨 1.5kg', lastPrice: 13100 },
     { name: '알배기', lastPrice: 2489 },
-    { name: '대파', lastPrice: 1930 }
+    { name: '대파', lastPrice: 1930 },
+    { name: '더 클래스 우유(2개묶음)', lastPrice: 4280 },
+    { name: '락토프리', lastPrice: 2680 }
   ];
 
   const DEFAULT_ITEMS_COSTCO = [
