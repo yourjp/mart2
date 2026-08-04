@@ -104,7 +104,7 @@
 
   // --- State Variables ---
   let currentMart = 'Emart';
-  let budget = DEFAULT_BUDGET;
+  let budget = DEFAULT_BUDGET_EMART;
   let cart = [];
   let savedItems = [];
   let autoNameIndex = 1;
