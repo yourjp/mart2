@@ -9,7 +9,7 @@
   // --- Constants & Default Data ---
   const DEFAULT_BUDGET = 60000;
   const DEFAULT_ITEMS_LIST = [
-    { name: '맥주', lastPrice: null },
+    { name: '맥주', lastPrice: 14000 },
     { name: '행사 우유', lastPrice: null },
     { name: '소화 우유', lastPrice: null },
     { name: '계란', lastPrice: null },
@@ -508,14 +508,38 @@
   function handleAddItem(e) {
     if (e) e.preventDefault();
 
-    const parsedPrice = parseQuickPrice(itemPriceInput.value);
+    let rawName = itemNameInput.value.trim();
+    let rawPrice = itemPriceInput.value.trim();
+    let itemQuantity = 1;
+
+    // Smart combined input parser (e.g. "맥주 5 14000원", "맥주 14000원")
+    if (!rawPrice && rawName) {
+      const parts = rawName.split(/\s+/);
+      if (parts.length >= 2) {
+        const lastPartPrice = parseQuickPrice(parts[parts.length - 1]);
+        if (lastPartPrice && lastPartPrice > 0) {
+          rawPrice = parts[parts.length - 1];
+          parts.pop();
+
+          if (parts.length >= 1 && /^\d+$/.test(parts[parts.length - 1])) {
+            const parsedQty = parseInt(parts[parts.length - 1], 10);
+            if (parsedQty > 0) {
+              itemQuantity = parsedQty;
+              parts.pop();
+            }
+          }
+          rawName = parts.join(' ');
+        }
+      }
+    }
+
+    const parsedPrice = parseQuickPrice(rawPrice);
     if (!parsedPrice || parsedPrice <= 0) {
       showToast('유효한 가격을 입력해 주세요.');
       itemPriceInput.focus();
       return;
     }
 
-    const rawName = itemNameInput.value.trim();
     let itemName = rawName;
     let isAutoName = false;
     let priceChange = null;
@@ -573,7 +597,7 @@
       id: 'item-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
       name: itemName,
       price: parsedPrice,
-      quantity: 1,
+      quantity: itemQuantity,
       isAutoName: isAutoName,
       priceChange: priceChange
     };
