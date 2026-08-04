@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.2 (2026-08-04)';
+  const APP_VERSION = 'v1.3 (2026-08-04)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -556,12 +556,49 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'chip-btn';
+      btn.title = '터치: 선택 / 길게 누르기: 삭제';
       
       const priceText = item.lastPrice ? `<span class="chip-price">${item.lastPrice.toLocaleString()}원</span>` : '';
       btn.innerHTML = `${escapeHtml(item.name)} ${priceText}`;
 
+      let pressTimer = null;
+      let isLongPress = false;
+
+      const startPress = () => {
+        isLongPress = false;
+        pressTimer = setTimeout(() => {
+          isLongPress = true;
+          if (confirm(`[${currentMart}] '${item.name}' 품목을 저장 품목 목록에서 삭제하시겠습니까?`)) {
+            savedItems = savedItems.filter(i => i.name.trim() !== item.name.trim());
+            saveState();
+            render();
+            showToast(`'${item.name}' 품목이 저장 목록에서 삭제되었습니다.`);
+          }
+        }, 550);
+      };
+
+      const cancelPress = () => {
+        if (pressTimer) {
+          clearTimeout(pressTimer);
+          pressTimer = null;
+        }
+      };
+
+      btn.addEventListener('mousedown', startPress);
+      btn.addEventListener('touchstart', startPress, { passive: true });
+
+      btn.addEventListener('mouseup', cancelPress);
+      btn.addEventListener('mouseleave', cancelPress);
+      btn.addEventListener('touchend', cancelPress);
+      btn.addEventListener('touchmove', cancelPress);
+      btn.addEventListener('contextmenu', (e) => e.preventDefault());
+
       btn.addEventListener('click', (e) => {
         e.preventDefault();
+        if (isLongPress) {
+          isLongPress = false;
+          return;
+        }
         selectAutocompleteItem(item);
       });
 
