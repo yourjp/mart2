@@ -230,17 +230,18 @@
     // 3. Saved Items
     try {
       const rawSaved = localStorage.getItem(keys.savedItemsKey);
-      let parsed = rawSaved ? JSON.parse(rawSaved) : [];
+      let parsed = rawSaved ? JSON.parse(rawSaved) : null;
       if (!Array.isArray(parsed) || parsed.length === 0) {
         parsed = createDefaultSavedItems(mart);
       } else {
         // Validate & fill default fields
+        parsed = parsed.filter(item => item && typeof item.name === 'string' && item.name.trim().length > 0);
         parsed = parsed.map(item => ({
-          name: item.name,
-          lastPrice: item.lastPrice ?? null,
-          useCount: item.useCount ?? 0,
-          lastUsedAt: item.lastUsedAt ?? null,
-          isDefault: item.isDefault ?? false,
+          name: item.name.trim(),
+          lastPrice: typeof item.lastPrice === 'number' ? item.lastPrice : null,
+          useCount: typeof item.useCount === 'number' ? item.useCount : 0,
+          lastUsedAt: item.lastUsedAt || null,
+          isDefault: Boolean(item.isDefault),
           priceHistory: Array.isArray(item.priceHistory) ? item.priceHistory : []
         }));
       }
@@ -250,7 +251,7 @@
       const itemMap = new Map(parsed.map(i => [i.name.trim(), i]));
 
       defaultList.forEach(def => {
-        const defName = typeof def === 'string' ? def : def.name;
+        const defName = (typeof def === 'string' ? def : def.name).trim();
         const defPrice = typeof def === 'object' ? def.lastPrice : null;
 
         if (itemMap.has(defName)) {
@@ -277,6 +278,7 @@
 
       savedItems = parsed;
     } catch (e) {
+      console.warn('loadState error, resetting saved items for', mart, e);
       savedItems = createDefaultSavedItems(mart);
     }
 
@@ -799,6 +801,17 @@
       if (priceHelper) priceHelper.classList.add('hidden');
       if (autocompleteList) autocompleteList.classList.add('hidden');
     };
+
+    const martTabsNav = document.querySelector('.mart-tabs');
+    if (martTabsNav) {
+      martTabsNav.addEventListener('click', (e) => {
+        const btn = e.target.closest('.tab-btn');
+        if (btn && btn.dataset.tab) {
+          e.preventDefault();
+          handleTabClick(btn.dataset.tab);
+        }
+      });
+    }
 
     if (tabEmart) {
       tabEmart.addEventListener('click', (e) => {

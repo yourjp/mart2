@@ -108,6 +108,10 @@ body {
   min-height: 48px;
 }
 
+.tab-btn * {
+  pointer-events: none;
+}
+
 .tab-btn.active {
   background: var(--card-bg);
   color: var(--theme-primary);
