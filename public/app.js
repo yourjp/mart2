@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.4 (2026-08-04)';
+  const APP_VERSION = 'v1.5 (2026-08-04)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -21,8 +21,6 @@
   const DEFAULT_ITEMS_EMART = [
     { name: '맥주(5개묶음)', lastPrice: 14000 },
     { name: '맥주', lastPrice: 14000 },
-    { name: '행사 우유', lastPrice: null },
-    { name: '소화 우유', lastPrice: null },
     { name: '계란', lastPrice: null },
     { name: '돼지고기', lastPrice: null },
     { name: '파', lastPrice: null },
@@ -248,6 +246,10 @@
           isDefault: Boolean(item.isDefault),
           priceHistory: Array.isArray(item.priceHistory) ? item.priceHistory : []
         }));
+
+        if (mart === 'Emart') {
+          parsed = parsed.filter(i => i.name !== '행사 우유' && i.name !== '소화 우유');
+        }
       }
 
       // Merge & sync missing default items for THIS mart only
