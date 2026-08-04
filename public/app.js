@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.1 (2026-08-04)';
+  const APP_VERSION = 'v1.2 (2026-08-04)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -988,9 +988,11 @@
   function init() {
     migrateLegacyData();
 
-    // Determine initial mart from localStorage or default to 'Emart'
-    let savedMart = localStorage.getItem('martApp_currentMart') || 'Emart';
-    if (savedMart === '이마트') savedMart = 'Emart';
+    // Default initial mart is 'Emart' unless explicitly saved as '코스트코'
+    let savedMart = localStorage.getItem('martApp_currentMart');
+    if (savedMart !== '코스트코') {
+      savedMart = 'Emart';
+    }
     loadState(savedMart);
     initEvents();
     render();
