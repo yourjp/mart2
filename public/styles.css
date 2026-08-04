@@ -282,6 +282,38 @@ body {
   margin-bottom: 12px;
 }
 
+.card-header-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.btn-toggle-card {
+  background: #f1f5f9;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.btn-toggle-card:hover {
+  background: var(--theme-primary-light);
+  color: var(--theme-primary);
+}
+
+.budget-card.collapsed .card-body {
+  display: none;
+}
+
+.budget-card.collapsed .card-header {
+  margin-bottom: 0;
+}
+
 .card-title {
   font-size: 1.1rem;
   font-weight: 700;

@@ -836,6 +836,21 @@
       render();
     });
 
+    // Budget Card Collapse / Expand Toggle
+    const budgetCard = document.getElementById('budget-card');
+    const budgetCardHeader = document.getElementById('budget-card-header');
+    const btnToggleBudget = document.getElementById('btn-toggle-budget');
+
+    if (budgetCardHeader && budgetCard) {
+      budgetCardHeader.addEventListener('click', () => {
+        budgetCard.classList.toggle('collapsed');
+        const isCollapsed = budgetCard.classList.contains('collapsed');
+        if (btnToggleBudget) {
+          btnToggleBudget.textContent = isCollapsed ? '▼ 펴기' : '▲ 접기';
+        }
+      });
+    }
+
     // Quick price input helper listener
     itemPriceInput.addEventListener('input', updatePriceHelper);
 

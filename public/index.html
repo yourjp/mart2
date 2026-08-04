@@ -11,7 +11,7 @@
 </head>
 <body data-mart="이마트">
   <div class="app-container">
-    <!-- Header & Store Navigation -->
+    <!-- Header & Sticky Display Board -->
     <header class="app-header">
       <nav class="mart-tabs" aria-label="마트 선택">
         <button type="button" class="tab-btn active" data-tab="Emart" id="tab-emart">
@@ -21,64 +21,67 @@
           <span class="tab-icon">📦</span> 코스트코
         </button>
       </nav>
+
+      <!-- Top Display Board (전광판 영역) -->
+      <section class="dashboard-board" id="dashboard-board">
+        <div class="dashboard-mart-label" id="dashboard-mart-label">이마트 장보기</div>
+        <div class="total-display">
+          <span class="total-label">현재 총합</span>
+          <span class="total-value" id="total-amount">0원</span>
+        </div>
+        <div class="status-display">
+          <span class="status-badge" id="status-badge">예산 내</span>
+          <span class="status-value" id="status-value">60,000원 남음</span>
+        </div>
+      </section>
+
+      <!-- Over Budget Recommendation Banner -->
+      <section class="recommendation-banner hidden" id="recommendation-banner" aria-live="polite">
+        <div class="banner-content">
+          <span class="banner-icon">💡</span>
+          <div class="banner-text" id="recommendation-text">
+            '품목' 소계 0원을 빼면 예산 초과액과 가장 가까워집니다.
+          </div>
+        </div>
+        <button type="button" class="btn-remove-recommended" id="btn-remove-recommended">
+          이 품목 빼기
+        </button>
+      </section>
+
+      <!-- Within Budget Recommendation Banner -->
+      <section class="recommendation-banner banner-within-budget hidden" id="within-budget-banner" aria-live="polite">
+        <div class="banner-content">
+          <span class="banner-icon">🎁</span>
+          <div class="banner-text" id="within-budget-text">
+            남은 예산으로 품목을 담아보세요!
+          </div>
+        </div>
+        <button type="button" class="btn-add-recommended" id="btn-add-recommended">
+          ➕ 장바구니에 담기
+        </button>
+      </section>
     </header>
 
-    <!-- Top Display Board (전광판 영역) -->
-    <section class="dashboard-board" id="dashboard-board">
-      <div class="dashboard-mart-label" id="dashboard-mart-label">이마트 장보기</div>
-      <div class="total-display">
-        <span class="total-label">현재 총합</span>
-        <span class="total-value" id="total-amount">0원</span>
-      </div>
-      <div class="status-display">
-        <span class="status-badge" id="status-badge">예산 내</span>
-        <span class="status-value" id="status-value">60,000원 남음</span>
-      </div>
-    </section>
-
-    <!-- Over Budget Recommendation Banner -->
-    <section class="recommendation-banner hidden" id="recommendation-banner" aria-live="polite">
-      <div class="banner-content">
-        <span class="banner-icon">💡</span>
-        <div class="banner-text" id="recommendation-text">
-          '품목' 소계 0원을 빼면 예산 초과액과 가장 가까워집니다.
-        </div>
-      </div>
-      <button type="button" class="btn-remove-recommended" id="btn-remove-recommended">
-        이 품목 빼기
-      </button>
-    </section>
-
-    <!-- Within Budget Recommendation Banner -->
-    <section class="recommendation-banner banner-within-budget hidden" id="within-budget-banner" aria-live="polite">
-      <div class="banner-content">
-        <span class="banner-icon">🎁</span>
-        <div class="banner-text" id="within-budget-text">
-          남은 예산으로 품목을 담아보세요!
-        </div>
-      </div>
-      <button type="button" class="btn-add-recommended" id="btn-add-recommended">
-        ➕ 장바구니에 담기
-      </button>
-    </section>
-
     <main class="main-content">
-      <!-- Budget Configuration -->
-      <section class="card budget-card">
-        <div class="card-header">
+      <!-- Budget Configuration (Collapsible) -->
+      <section class="card budget-card" id="budget-card">
+        <div class="card-header card-header-toggle" id="budget-card-header">
           <label for="budget-input" class="card-title">🎯 예산 설정</label>
+          <button type="button" class="btn-toggle-card" id="btn-toggle-budget" aria-label="예산 설정 접기/펴기">▲ 접기</button>
         </div>
-        <div class="input-row">
-          <div class="input-wrapper">
-            <input 
-              type="text" 
-              id="budget-input" 
-              class="large-input" 
-              inputmode="numeric" 
-              placeholder="예산 입력" 
-              aria-label="예산 금액 입력"
-            >
-            <span class="input-unit">원</span>
+        <div class="card-body" id="budget-card-body">
+          <div class="input-row">
+            <div class="input-wrapper">
+              <input 
+                type="text" 
+                id="budget-input" 
+                class="large-input" 
+                inputmode="numeric" 
+                placeholder="예산 입력" 
+                aria-label="예산 금액 입력"
+              >
+              <span class="input-unit">원</span>
+            </div>
           </div>
         </div>
       </section>
