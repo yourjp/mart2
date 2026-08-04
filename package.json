@@ -1,0 +1,17 @@
+{
+  "name": "shopping-budget-app",
+  "version": "1.0.0",
+  "description": "Node.js 기반 마트 장보기 예산 계산기 웹 앱",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}

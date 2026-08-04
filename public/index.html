@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>마트 장보기 예산 계산기</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-mart="이마트">
+  <div class="app-container">
+    <!-- Header & Store Navigation -->
+    <header class="app-header">
+      <nav class="mart-tabs" aria-label="마트 선택">
+        <button type="button" class="tab-btn active" data-tab="Emart" id="tab-emart">
+          <span class="tab-icon">🛒</span> Emart
+        </button>
+        <button type="button" class="tab-btn" data-tab="코스트코" id="tab-costco">
+          <span class="tab-icon">📦</span> 코스트코
+        </button>
+      </nav>
+    </header>
+
+    <!-- Top Display Board (전광판 영역) -->
+    <section class="dashboard-board" id="dashboard-board">
+      <div class="dashboard-mart-label" id="dashboard-mart-label">이마트 장보기</div>
+      <div class="total-display">
+        <span class="total-label">현재 총합</span>
+        <span class="total-value" id="total-amount">0원</span>
+      </div>
+      <div class="status-display">
+        <span class="status-badge" id="status-badge">예산 내</span>
+        <span class="status-value" id="status-value">60,000원 남음</span>
+      </div>
+    </section>
+
+    <!-- Over Budget Recommendation Banner -->
+    <section class="recommendation-banner hidden" id="recommendation-banner" aria-live="polite">
+      <div class="banner-content">
+        <span class="banner-icon">💡</span>
+        <div class="banner-text" id="recommendation-text">
+          '품목' 소계 0원을 빼면 예산 초과액과 가장 가까워집니다.
+        </div>
+      </div>
+      <button type="button" class="btn-remove-recommended" id="btn-remove-recommended">
+        이 품목 빼기
+      </button>
+    </section>
+
+    <main class="main-content">
+      <!-- Budget Configuration -->
+      <section class="card budget-card">
+        <div class="card-header">
+          <label for="budget-input" class="card-title">🎯 예산 설정</label>
+        </div>
+        <div class="input-row">
+          <div class="input-wrapper">
+            <input 
+              type="text" 
+              id="budget-input" 
+              class="large-input" 
+              inputmode="numeric" 
+              placeholder="예산 입력" 
+              aria-label="예산 금액 입력"
+            >
+            <span class="input-unit">원</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Item Input Section -->
+      <section class="card input-card">
+        <div class="card-header">
+          <span class="card-title">⚡ 품목 빠른 입력</span>
+        </div>
+        
+        <form id="item-form" autocomplete="off" onsubmit="return false;">
+          <div class="form-group autocomplete-container">
+            <label for="item-name-input" class="form-label">품목 (선택)</label>
+            <input 
+              type="text" 
+              id="item-name-input" 
+              class="large-input" 
+              placeholder="예: 맥주, 우유 (미입력시 자동지정)"
+              aria-label="품목 입력"
+            >
+            <!-- Autocomplete Suggestions List -->
+            <ul id="autocomplete-list" class="autocomplete-list hidden" role="listbox"></ul>
+          </div>
+
+          <div class="form-group">
+            <label for="item-price-input" class="form-label">가격 (필수)</label>
+            <div class="input-wrapper">
+              <input 
+                type="text" 
+                id="item-price-input" 
+                class="large-input" 
+                inputmode="decimal" 
+                placeholder="예: 10 (=1만), 4.8 (=4.8천)"
+                aria-label="가격 입력"
+                required
+              >
+              <span class="input-unit">원</span>
+            </div>
+            <!-- Quick Price Helper Text -->
+            <div id="price-helper" class="price-helper hidden" aria-live="polite">
+              <span class="helper-icon">ℹ️</span>
+              <span id="price-helper-text">10,000원으로 입력됩니다</span>
+            </div>
+          </div>
+
+          <button type="submit" id="btn-add-item" class="btn-primary btn-block large-btn">
+            ➕ 장바구니에 추가
+          </button>
+        </form>
+      </section>
+
+      <!-- Cart List Section -->
+      <section class="card cart-card">
+        <div class="card-header cart-header-row">
+          <span class="card-title">🛒 장바구니 목록 (<span id="cart-item-count">0</span>개)</span>
+          <button type="button" id="btn-clear-cart" class="btn-text-danger">
+            전체 비우기
+          </button>
+        </div>
+
+        <div id="cart-empty-msg" class="empty-state">
+          <span class="empty-icon">🧺</span>
+          <p>장바구니가 비어 있습니다.<br>위에서 가격을 입력하여 담아보세요!</p>
+        </div>
+
+        <ul id="cart-list" class="cart-list" role="list"></ul>
+
+        <!-- Action buttons inside Cart Section -->
+        <div class="cart-actions">
+          <button type="button" id="btn-save-record" class="btn-secondary btn-block large-btn">
+            📝 계산결과 저장 (물품.md)
+          </button>
+          <p class="notice-text">
+            ※ "계산결과 저장"은 로컬 서버 실행 환경에서 <code>물품.md</code> 파일로 누적 저장됩니다.
+          </p>
+
+          <div class="reset-saved-wrapper">
+            <button type="button" id="btn-reset-saved" class="btn-link">
+              🔄 이 마트 저장 품목 초기화
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
