@@ -55,7 +55,7 @@ app.post('/api/save-record', (req, res) => {
   }
 });
 
-// Helper: Parse items from Markdown file
+// Helper: Parse items from Markdown file (supports comma separated format: 품목명, 단가)
 function parseItemsFromMarkdown(filePath) {
   if (!fs.existsSync(filePath)) return null;
 
@@ -66,28 +66,41 @@ function parseItemsFromMarkdown(filePath) {
 
     lines.forEach(line => {
       const trimmed = line.trim();
-      if (!trimmed.startsWith('|') || trimmed.includes('품목명') || trimmed.includes(':---')) {
+      if (!trimmed || trimmed.startsWith('#') || trimmed.includes(':---')) {
         return;
       }
 
-      const parts = trimmed.split('|').map(p => p.trim()).filter(Boolean);
-      if (parts.length >= 1) {
-        const name = parts[0];
-        let price = null;
+      let name = '';
+      let rawPrice = '';
 
-        if (parts.length >= 2) {
-          const rawPrice = parts[1].replace(/[^0-9]/g, '');
-          if (rawPrice) {
-            const parsed = parseInt(rawPrice, 10);
+      if (trimmed.startsWith('|')) {
+        const parts = trimmed.split('|').map(p => p.trim()).filter(Boolean);
+        if (parts.length >= 1) {
+          name = parts[0];
+          rawPrice = parts[1] || '';
+        }
+      } else {
+        const commaIdx = trimmed.indexOf(',');
+        if (commaIdx !== -1) {
+          name = trimmed.substring(0, commaIdx).trim();
+          rawPrice = trimmed.substring(commaIdx + 1).trim();
+        } else {
+          name = trimmed;
+        }
+      }
+
+      if (name && name !== '-' && name !== '품목명') {
+        let price = null;
+        if (rawPrice) {
+          const cleanPrice = rawPrice.replace(/[^0-9]/g, '');
+          if (cleanPrice) {
+            const parsed = parseInt(cleanPrice, 10);
             if (!isNaN(parsed) && parsed > 0) {
               price = parsed;
             }
           }
         }
-
-        if (name && name !== '-' && name !== '품목명') {
-          items.push({ name, lastPrice: price });
-        }
+        items.push({ name, lastPrice: price });
       }
     });
 
@@ -98,18 +111,16 @@ function parseItemsFromMarkdown(filePath) {
   }
 }
 
-// Helper: Write items to Markdown file
+// Helper: Write items to Markdown file in comma separated format (품목명, 단가)
 function writeItemsToMarkdown(filePath, martName, items) {
   try {
     let md = `# ${martName} 품목 및 단가 리스트\n\n`;
-    md += `| 품목명 | 단가 |\n`;
-    md += `| :--- | ---: |\n`;
 
     items.forEach(item => {
       const priceStr = (item.lastPrice && item.lastPrice > 0) 
         ? `${Number(item.lastPrice).toLocaleString()}원` 
         : '-';
-      md += `| ${item.name} | ${priceStr} |\n`;
+      md += `${item.name}, ${priceStr}\n`;
     });
 
     fs.writeFileSync(filePath, md, 'utf8');
