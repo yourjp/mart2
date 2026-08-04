@@ -36,7 +36,7 @@
    - 마트별로 예산, 장바구니, 저장 품목, 가격 이력이 독립적으로 localStorage에 저장
 
 7. **계산결과 저장 (로컬 서버 연동)**
-   - **"계산결과 저장"** 버튼 클릭 시 서버 API(`POST /api/save-record`)를 통해 프로젝트 루트의 `물품.md` 파일에 날짜, 마트명, 품목 표, 총합계를 마크다운 형식으로 누적 기록
+   - **"계산결과 저장"** 버튼 클릭 시 서버 API(`POST /api/save-record`)를 통해 프로젝트 루트의 `구매내역.md` 파일에 날짜, 마트명, 품목 표, 총합계를 마크다운 형식으로 누적 기록
 
 ---
 
@@ -85,11 +85,11 @@ shopping-budget-app/
 ├─ package.json        # Node.js 패키지 정보 및 의존성
 ├─ server.js          # Express 서버 및 /api/save-record API
 ├─ vercel.json        # Vercel 배포 설정
-├─ .gitignore         # git 제외 파일 설정 (node_modules, 물품.md 등)
+├─ .gitignore         # git 제외 파일 설정 (node_modules, 구매내역.md 등)
 ├─ public/
 │  ├─ index.html      # HTML5 모바일 웹 앱 구조
 │  ├─ styles.css      # CSS3 모바일 우선 반응형 커스텀 스타일
 │  └─ app.js          # Vanilla JS 상태 관리, 가격 축약 해석, 저장소 연동
-├─ 물품.md            # 로컬 서버 실행 시 저장 버튼으로 자동 생성되는 누적 결과 파일
+├─ 구매내역.md        # 로컬 서버 실행 시 저장 버튼으로 자동 생성되는 누적 결과 파일
 └─ README.md          # 프로젝트 문서
 ```

@@ -49,6 +49,19 @@
       </button>
     </section>
 
+    <!-- Within Budget Recommendation Banner -->
+    <section class="recommendation-banner banner-within-budget hidden" id="within-budget-banner" aria-live="polite">
+      <div class="banner-content">
+        <span class="banner-icon">🎁</span>
+        <div class="banner-text" id="within-budget-text">
+          남은 예산으로 품목을 담아보세요!
+        </div>
+      </div>
+      <button type="button" class="btn-add-recommended" id="btn-add-recommended">
+        ➕ 장바구니에 담기
+      </button>
+    </section>
+
     <main class="main-content">
       <!-- Budget Configuration -->
       <section class="card budget-card">
@@ -88,6 +101,12 @@
             >
             <!-- Autocomplete Suggestions List -->
             <ul id="autocomplete-list" class="autocomplete-list hidden" role="listbox"></ul>
+            
+            <!-- Quick Item Selection Chips -->
+            <div class="quick-chips-wrapper">
+              <span class="chips-label">📌 등록/추천 품목 터치 선택:</span>
+              <div id="quick-chips-list" class="quick-chips-list"></div>
+            </div>
           </div>
 
           <div class="form-group">
@@ -136,15 +155,15 @@
         <!-- Action buttons inside Cart Section -->
         <div class="cart-actions">
           <button type="button" id="btn-save-record" class="btn-secondary btn-block large-btn">
-            📝 계산결과 저장 (물품.md)
+            📝 계산결과 저장 (구매내역.md)
           </button>
           <p class="notice-text">
-            ※ "계산결과 저장"은 로컬 서버 실행 환경에서 <code>물품.md</code> 파일로 누적 저장됩니다.
+            ※ "계산결과 저장"은 로컬 서버 실행 환경에서 <code>구매내역.md</code> 파일로 누적 저장됩니다.
           </p>
 
           <div class="reset-saved-wrapper">
             <button type="button" id="btn-reset-saved" class="btn-link">
-              🔄 이 마트 저장 품목 초기화
+              🔄 Emart 품목 초기화
             </button>
           </div>
         </div>

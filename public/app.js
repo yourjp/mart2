@@ -7,8 +7,18 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const DEFAULT_BUDGET = 60000;
-  const DEFAULT_ITEMS_LIST = [
+  const DEFAULT_BUDGET_EMART = 60000;
+  const DEFAULT_BUDGET_COSTCO = 300000;
+
+  function getDefaultBudgetForMart(mart) {
+    if (mart === '코스트코') {
+      return DEFAULT_BUDGET_COSTCO;
+    }
+    return DEFAULT_BUDGET_EMART;
+  }
+  
+  const DEFAULT_ITEMS_EMART = [
+    { name: '맥주(5개묶음)', lastPrice: 14000 },
     { name: '맥주', lastPrice: 14000 },
     { name: '행사 우유', lastPrice: null },
     { name: '소화 우유', lastPrice: null },
@@ -29,8 +39,46 @@
     { name: '자두 1kg', lastPrice: 7980 },
     { name: '참타리버섯', lastPrice: 1480 },
     { name: '성주 참외', lastPrice: 11980 },
-    { name: '밀양 청양고추', lastPrice: 2980 }
+    { name: '밀양 청양고추', lastPrice: 2980 },
+    { name: '캠벨 1.5kg', lastPrice: 13100 },
+    { name: '알배기', lastPrice: 2489 },
+    { name: '대파', lastPrice: 1930 }
   ];
+
+  const DEFAULT_ITEMS_COSTCO = [
+    { name: '커클랜드 생수', lastPrice: null },
+    { name: '맥주(5개묶음)', lastPrice: null },
+    { name: '계란 30구', lastPrice: null },
+    { name: '돼지고기(대용량)', lastPrice: null },
+    { name: '소고기(대용량)', lastPrice: null },
+    { name: '크로와상', lastPrice: null },
+    { name: '베이글', lastPrice: null },
+    { name: '우유 2입', lastPrice: null },
+    { name: '토마토 4KG', lastPrice: 11890 },
+    { name: '미니 대추토마토', lastPrice: 10890 },
+    { name: '그린키위 2.4KG', lastPrice: 17090 },
+    { name: '설빙 미숫가루', lastPrice: 13990 },
+    { name: '기린캔 500ML', lastPrice: 1874 },
+    { name: '산토리 카쿠빈', lastPrice: 27690 },
+    { name: '와인 베라짜노 클라시코', lastPrice: 29990 },
+    { name: '와인 소비뇽블랑', lastPrice: 10990 },
+    { name: '와인 소노마 샤르도네', lastPrice: 14790 },
+    { name: '파프리카', lastPrice: 7890 },
+    { name: '조미 아구포 350G', lastPrice: 16290 },
+    { name: '델리마 코파슬리', lastPrice: 5990 },
+    { name: '깐대파 1KG', lastPrice: 5990 },
+    { name: '궁 쇠고기육포 280G', lastPrice: 19990 },
+    { name: '불고기 브리또', lastPrice: 11490 },
+    { name: '새우 31–40 908G', lastPrice: 23490 },
+    { name: '새우 50–70 908G', lastPrice: 22490 }
+  ];
+
+  function getDefaultItemsForMart(mart) {
+    if (mart === '코스트코') {
+      return DEFAULT_ITEMS_COSTCO;
+    }
+    return DEFAULT_ITEMS_EMART;
+  }
 
   // Korean Chosung Disassembly Constants
   const KOREAN_START = 0xac00;
@@ -74,6 +122,10 @@
   const recommendationText = document.getElementById('recommendation-text');
   const btnRemoveRecommended = document.getElementById('btn-remove-recommended');
 
+  const withinBudgetBanner = document.getElementById('within-budget-banner');
+  const withinBudgetText = document.getElementById('within-budget-text');
+  const btnAddRecommended = document.getElementById('btn-add-recommended');
+
   const budgetInput = document.getElementById('budget-input');
   const itemForm = document.getElementById('item-form');
   const itemNameInput = document.getElementById('item-name-input');
@@ -81,6 +133,7 @@
   const priceHelper = document.getElementById('price-helper');
   const priceHelperText = document.getElementById('price-helper-text');
   const autocompleteList = document.getElementById('autocomplete-list');
+  const quickChipsList = document.getElementById('quick-chips-list');
 
   const cartItemCount = document.getElementById('cart-item-count');
   const cartEmptyMsg = document.getElementById('cart-empty-msg');
@@ -133,8 +186,9 @@
   }
 
   // --- Default Items Seeding ---
-  function createDefaultSavedItems() {
-    return DEFAULT_ITEMS_LIST.map(def => {
+  function createDefaultSavedItems(mart) {
+    const list = getDefaultItemsForMart(mart);
+    return list.map(def => {
       const name = typeof def === 'string' ? def : def.name;
       const lastPrice = typeof def === 'object' ? def.lastPrice : null;
       return {
@@ -157,7 +211,12 @@
 
     // 1. Budget
     const savedBudget = localStorage.getItem(keys.budgetKey);
-    budget = savedBudget !== null ? parseInt(savedBudget, 10) : DEFAULT_BUDGET;
+    const defaultBudget = getDefaultBudgetForMart(mart);
+    if (mart === '코스트코' && (savedBudget === null || savedBudget === '60000')) {
+      budget = DEFAULT_BUDGET_COSTCO;
+    } else {
+      budget = savedBudget !== null ? parseInt(savedBudget, 10) : defaultBudget;
+    }
 
     // 2. Cart
     try {
@@ -173,7 +232,7 @@
       const rawSaved = localStorage.getItem(keys.savedItemsKey);
       let parsed = rawSaved ? JSON.parse(rawSaved) : [];
       if (!Array.isArray(parsed) || parsed.length === 0) {
-        parsed = createDefaultSavedItems();
+        parsed = createDefaultSavedItems(mart);
       } else {
         // Validate & fill default fields
         parsed = parsed.map(item => ({
@@ -186,26 +245,39 @@
         }));
       }
 
-      // Merge missing default items into savedItems
-      const existingNames = new Set(parsed.map(i => i.name.trim()));
-      DEFAULT_ITEMS_LIST.forEach(def => {
+      // Merge & sync missing default items for THIS mart only
+      const defaultList = getDefaultItemsForMart(mart);
+      const itemMap = new Map(parsed.map(i => [i.name.trim(), i]));
+
+      defaultList.forEach(def => {
         const defName = typeof def === 'string' ? def : def.name;
         const defPrice = typeof def === 'object' ? def.lastPrice : null;
-        if (!existingNames.has(defName)) {
-          parsed.push({
+
+        if (itemMap.has(defName)) {
+          const existing = itemMap.get(defName);
+          if ((existing.lastPrice === null || existing.lastPrice === undefined) && defPrice !== null) {
+            existing.lastPrice = defPrice;
+            if (!Array.isArray(existing.priceHistory) || existing.priceHistory.length === 0) {
+              existing.priceHistory = [{ price: defPrice, usedAt: new Date().toISOString() }];
+            }
+          }
+        } else {
+          const newItem = {
             name: defName,
             lastPrice: defPrice,
             useCount: defPrice ? 1 : 0,
             lastUsedAt: null,
             isDefault: true,
             priceHistory: defPrice ? [{ price: defPrice, usedAt: new Date().toISOString() }] : []
-          });
+          };
+          parsed.push(newItem);
+          itemMap.set(defName, newItem);
         }
       });
 
       savedItems = parsed;
     } catch (e) {
-      savedItems = createDefaultSavedItems();
+      savedItems = createDefaultSavedItems(mart);
     }
 
     // Calculate autoNameIndex for generated item names
@@ -280,7 +352,11 @@
     }
 
     dashboardMartLabel.textContent = `${currentMart} 장보기`;
+    btnResetSaved.textContent = `🔄 ${currentMart} 품목 초기화`;
     budgetInput.value = budget.toLocaleString();
+
+    // Render Quick Selection Chips for active mart
+    renderQuickChips();
 
     // Compute total amount
     const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -293,6 +369,7 @@
       statusBadgeEl.textContent = '예산 초과';
       statusValueEl.textContent = `${over.toLocaleString()}원 초과`;
       
+      withinBudgetBanner.classList.add('hidden');
       renderRecommendationBanner(over);
     } else {
       const remaining = budget - totalAmount;
@@ -301,6 +378,7 @@
       statusValueEl.textContent = `${remaining.toLocaleString()}원 남음`;
 
       recommendationBanner.classList.add('hidden');
+      renderWithinBudgetRecommendation(remaining, totalAmount, budget);
     }
 
     // Render Cart
@@ -397,42 +475,130 @@
     }
   }
 
-  // --- Autocomplete Logic ---
-  function updateAutocomplete() {
-    const query = itemNameInput.value.trim();
-    if (!query) {
-      autocompleteList.classList.add('hidden');
+  // Render Recommendation Banner when within budget (activates when totalAmount >= 70% of budget)
+  function renderWithinBudgetRecommendation(remainingAmount, totalAmount, budgetAmount) {
+    // Activate only when totalAmount is at least 70% of budget (and remaining > 0)
+    if (remainingAmount <= 0 || budgetAmount <= 0 || (totalAmount / budgetAmount) < 0.70) {
+      withinBudgetBanner.classList.add('hidden');
       return;
     }
 
-    const queryLower = query.toLowerCase();
-    const queryChosung = getChosung(queryLower);
+    const cartNames = new Set(cart.map(i => i.name.trim()));
 
-    // Score items for matching
-    const matches = savedItems.filter(item => {
-      const nameLower = item.name.toLowerCase();
-      const nameChosung = getChosung(nameLower);
+    // Filter savedItems: lastPrice <= remainingAmount, not in cart, lastPrice > 0
+    const candidates = savedItems.filter(item => 
+      item.lastPrice && 
+      item.lastPrice > 0 && 
+      item.lastPrice <= remainingAmount && 
+      !cartNames.has(item.name.trim())
+    );
 
-      return (
-        nameLower.startsWith(queryLower) ||
-        nameLower.includes(queryLower) ||
-        nameChosung.includes(queryChosung)
-      );
+    if (candidates.length === 0) {
+      withinBudgetBanner.classList.add('hidden');
+      return;
+    }
+
+    // Sort candidates:
+    // 1. Frequently used (useCount)
+    // 2. Recently used (lastUsedAt)
+    // 3. Highest price <= remaining (to maximize budget utilization)
+    candidates.sort((a, b) => {
+      const aUse = a.useCount || 0;
+      const bUse = b.useCount || 0;
+      if (bUse !== aUse) return bUse - aUse;
+
+      const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
+      const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
+      if (bTime !== aTime) return bTime - aTime;
+
+      return b.lastPrice - a.lastPrice;
     });
 
-    // Sort matching items:
-    // 1. Starts with query
-    // 2. Contains query
-    // 3. Recently used
-    // 4. Frequently used
-    matches.sort((a, b) => {
-      const aLower = a.name.toLowerCase();
-      const bLower = b.name.toLowerCase();
+    const bestCandidate = candidates[0];
+    withinBudgetText.innerHTML = `남은 예산으로 <strong>'${escapeHtml(bestCandidate.name)}'</strong> (${bestCandidate.lastPrice.toLocaleString()}원)을 담아보세요!`;
+    withinBudgetBanner.classList.remove('hidden');
 
-      const aStart = aLower.startsWith(queryLower);
-      const bStart = bLower.startsWith(queryLower);
-      if (aStart && !bStart) return -1;
-      if (!aStart && bStart) return 1;
+    btnAddRecommended.onclick = () => {
+      cart.push({
+        id: 'item-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+        name: bestCandidate.name,
+        price: bestCandidate.lastPrice,
+        quantity: 1,
+        isAutoName: false,
+        priceChange: { type: 'same' }
+      });
+
+      bestCandidate.useCount = (bestCandidate.useCount || 0) + 1;
+      bestCandidate.lastUsedAt = new Date().toISOString();
+
+      saveState();
+      render();
+      showToast(`'${bestCandidate.name}' 항목을 장바구니에 담았습니다.`);
+    };
+  }
+
+  // --- Quick Selection Chips Rendering ---
+  function renderQuickChips() {
+    if (!quickChipsList) return;
+    quickChipsList.innerHTML = '';
+
+    if (!savedItems || savedItems.length === 0) {
+      quickChipsList.innerHTML = '<span class="chips-label" style="font-weight:normal;">등록된 품목이 없습니다.</span>';
+      return;
+    }
+
+    savedItems.forEach(item => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip-btn';
+      
+      const priceText = item.lastPrice ? `<span class="chip-price">${item.lastPrice.toLocaleString()}원</span>` : '';
+      btn.innerHTML = `${escapeHtml(item.name)} ${priceText}`;
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        selectAutocompleteItem(item);
+      });
+
+      quickChipsList.appendChild(btn);
+    });
+  }
+
+  // --- Autocomplete Logic ---
+  function updateAutocomplete() {
+    const query = itemNameInput.value.trim();
+    let matches = [];
+
+    if (!query) {
+      matches = [...savedItems];
+    } else {
+      const queryLower = query.toLowerCase();
+      const queryChosung = getChosung(queryLower);
+
+      matches = savedItems.filter(item => {
+        const nameLower = item.name.toLowerCase();
+        const nameChosung = getChosung(nameLower);
+
+        return (
+          nameLower.startsWith(queryLower) ||
+          nameLower.includes(queryLower) ||
+          nameChosung.includes(queryChosung)
+        );
+      });
+    }
+
+    // Sort matching items:
+    matches.sort((a, b) => {
+      if (query) {
+        const queryLower = query.toLowerCase();
+        const aLower = a.name.toLowerCase();
+        const bLower = b.name.toLowerCase();
+
+        const aStart = aLower.startsWith(queryLower);
+        const bStart = bLower.startsWith(queryLower);
+        if (aStart && !bStart) return -1;
+        if (!aStart && bStart) return 1;
+      }
 
       const aUse = a.useCount || 0;
       const bUse = b.useCount || 0;
@@ -443,7 +609,7 @@
       return bTime - aTime;
     });
 
-    const displayList = matches.slice(0, 7);
+    const displayList = matches.slice(0, 10);
 
     if (displayList.length === 0) {
       autocompleteList.classList.add('hidden');
@@ -512,23 +678,29 @@
     let rawPrice = itemPriceInput.value.trim();
     let itemQuantity = 1;
 
-    // Smart combined input parser (e.g. "맥주 5 14000원", "맥주 14000원")
+    // Smart price auto-fill if user types a known item name without price
     if (!rawPrice && rawName) {
-      const parts = rawName.split(/\s+/);
-      if (parts.length >= 2) {
-        const lastPartPrice = parseQuickPrice(parts[parts.length - 1]);
-        if (lastPartPrice && lastPartPrice > 0) {
-          rawPrice = parts[parts.length - 1];
-          parts.pop();
+      const matchItem = savedItems.find(i => i.name.trim().toLowerCase() === rawName.toLowerCase());
+      if (matchItem && matchItem.lastPrice) {
+        rawPrice = matchItem.lastPrice.toString();
+      } else {
+        // Smart combined input parser (e.g. "맥주 5 14000원", "맥주 14000원")
+        const parts = rawName.split(/\s+/);
+        if (parts.length >= 2) {
+          const lastPartPrice = parseQuickPrice(parts[parts.length - 1]);
+          if (lastPartPrice && lastPartPrice > 0) {
+            rawPrice = parts[parts.length - 1];
+            parts.pop();
 
-          if (parts.length >= 1 && /^\d+$/.test(parts[parts.length - 1])) {
-            const parsedQty = parseInt(parts[parts.length - 1], 10);
-            if (parsedQty > 0) {
-              itemQuantity = parsedQty;
-              parts.pop();
+            if (parts.length >= 1 && /^\d+$/.test(parts[parts.length - 1])) {
+              const parsedQty = parseInt(parts[parts.length - 1], 10);
+              if (parsedQty > 0) {
+                itemQuantity = parsedQty;
+                parts.pop();
+              }
             }
+            rawName = parts.join(' ');
           }
-          rawName = parts.join(' ');
         }
       }
     }
@@ -617,21 +789,30 @@
   // --- Event Listeners Initialization ---
   function initEvents() {
     // Store Tab switching
-    tabEmart.addEventListener('click', () => {
-      if (currentMart !== 'Emart' && currentMart !== '이마트') {
-        saveState();
-        loadState('Emart');
-        render();
-      }
-    });
+    const handleTabClick = (targetMart) => {
+      const canonicalTarget = (targetMart === '이마트' || targetMart === 'Emart') ? 'Emart' : targetMart;
+      saveState();
+      loadState(canonicalTarget);
+      render();
+      if (itemNameInput) itemNameInput.value = '';
+      if (itemPriceInput) itemPriceInput.value = '';
+      if (priceHelper) priceHelper.classList.add('hidden');
+      if (autocompleteList) autocompleteList.classList.add('hidden');
+    };
 
-    tabCostco.addEventListener('click', () => {
-      if (currentMart !== '코스트코') {
-        saveState();
-        loadState('코스트코');
-        render();
-      }
-    });
+    if (tabEmart) {
+      tabEmart.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleTabClick('Emart');
+      });
+    }
+
+    if (tabCostco) {
+      tabCostco.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleTabClick('코스트코');
+      });
+    }
 
     // Budget input change
     budgetInput.addEventListener('input', () => {
@@ -704,7 +885,7 @@
     // Reset Saved Items
     btnResetSaved.addEventListener('click', () => {
       if (confirm(`[${currentMart}] 저장된 품목 및 가격 이력을 초기화하고 기본 품목으로 복원하시겠습니까?`)) {
-        savedItems = createDefaultSavedItems();
+        savedItems = createDefaultSavedItems(currentMart);
         saveState();
         render();
         showToast('저장 품목을 기본 상태로 복원했습니다.');

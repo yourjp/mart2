@@ -42,12 +42,12 @@ app.post('/api/save-record', (req, res) => {
     const formattedTotal = `${Number(totalAmount).toLocaleString()}원`;
     markdownText += `\n**총합계: ${formattedTotal}**\n\n---\n\n`;
 
-    const filePath = path.join(__dirname, '물품.md');
+    const filePath = path.join(__dirname, '구매내역.md');
     fs.appendFileSync(filePath, markdownText, 'utf8');
 
-    return res.json({ success: true, message: '계산결과가 물품.md에 성공적으로 저장되었습니다.' });
+    return res.json({ success: true, message: '계산결과가 구매내역.md에 성공적으로 저장되었습니다.' });
   } catch (error) {
-    console.error('Error saving record to 물품.md:', error);
+    console.error('Error saving record to 구매내역.md:', error);
     return res.status(500).json({ 
       success: false, 
       message: '서버 파일 저기에 실패했습니다 (Vercel 등 서버리스 환경일 수 있습니다): ' + error.message 
