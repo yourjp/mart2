@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.7 (2026-08-04)';
+  const APP_VERSION = 'v1.8 (2026-08-04)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -143,6 +143,8 @@
   const btnClearCart = document.getElementById('btn-clear-cart');
   const btnSaveRecord = document.getElementById('btn-save-record');
   const btnResetSaved = document.getElementById('btn-reset-saved');
+  const btnUploadItems = document.getElementById('btn-upload-items');
+  const fileInputItems = document.getElementById('file-input-items');
 
   // --- Data Migration & Storage Keys ---
   function getStorageKeys(mart) {
@@ -1005,6 +1007,102 @@
         showToast('저장 품목을 기본 상태로 복원했습니다.');
       }
     });
+
+    // Upload Items Markdown/CSV/Text File
+    if (btnUploadItems && fileInputItems) {
+      btnUploadItems.addEventListener('click', () => {
+        fileInputItems.click();
+      });
+
+      fileInputItems.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          const content = evt.target.result;
+          if (!content) return;
+
+          const lines = content.split('\n');
+
+          const itemMap = new Map(savedItems.map(i => [i.name.trim(), i]));
+
+          lines.forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#') || trimmed.includes(':---')) {
+              return;
+            }
+
+            let name = '';
+            let rawPrice = '';
+
+            if (trimmed.startsWith('|')) {
+              const parts = trimmed.split('|').map(p => p.trim()).filter(Boolean);
+              if (parts.length >= 1) {
+                name = parts[0];
+                rawPrice = parts[1] || '';
+              }
+            } else {
+              const commaIdx = trimmed.indexOf(',');
+              if (commaIdx !== -1) {
+                name = trimmed.substring(0, commaIdx).trim();
+                rawPrice = trimmed.substring(commaIdx + 1).trim();
+              } else {
+                name = trimmed;
+              }
+            }
+
+            if (name && name !== '-' && name !== '품목명') {
+              let price = null;
+              if (rawPrice) {
+                const cleanPrice = rawPrice.replace(/[^0-9]/g, '');
+                if (cleanPrice) {
+                  const parsed = parseInt(cleanPrice, 10);
+                  if (!isNaN(parsed) && parsed > 0) {
+                    price = parsed;
+                  }
+                }
+              }
+
+              if (itemMap.has(name)) {
+                const existing = itemMap.get(name);
+                if (price !== null) {
+                  existing.lastPrice = price;
+                }
+              } else {
+                const newItem = {
+                  name: name,
+                  lastPrice: price,
+                  useCount: price ? 1 : 0,
+                  lastUsedAt: null,
+                  isDefault: true,
+                  priceHistory: price ? [{ price: price, usedAt: new Date().toISOString() }] : []
+                };
+                savedItems.push(newItem);
+                itemMap.set(name, newItem);
+              }
+            }
+          });
+
+          saveState();
+          render();
+          fileInputItems.value = '';
+
+          // Sync to backend file if API is available
+          try {
+            fetch('/api/items', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ martName: currentMart, items: savedItems })
+            });
+          } catch (err) {}
+
+          showToast(`'${file.name}' 파일에서 품목이 성공적으로 업로드되었습니다!`);
+        };
+
+        reader.readAsText(file);
+      });
+    }
 
     // Save Record API ("계산결과 저장")
     btnSaveRecord.addEventListener('click', async () => {
