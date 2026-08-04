@@ -9,7 +9,27 @@
   // --- Constants & Default Data ---
   const DEFAULT_BUDGET = 60000;
   const DEFAULT_ITEMS_LIST = [
-    '맥주', '행사 우유', '소화 우유', '계란', '돼지고기', '파', '상추', '깻잎', '콩국물'
+    { name: '맥주', lastPrice: null },
+    { name: '행사 우유', lastPrice: null },
+    { name: '소화 우유', lastPrice: null },
+    { name: '계란', lastPrice: null },
+    { name: '돼지고기', lastPrice: null },
+    { name: '파', lastPrice: null },
+    { name: '상추', lastPrice: null },
+    { name: '깻잎', lastPrice: null },
+    { name: '콩국물', lastPrice: null },
+    { name: '적상추', lastPrice: 2780 },
+    { name: '백오이 5입', lastPrice: 3480 },
+    { name: '청양 고추', lastPrice: 2980 },
+    { name: '서울 우유 2입', lastPrice: 8960 },
+    { name: '양지 1++', lastPrice: 15010 },
+    { name: '시금치', lastPrice: 2980 },
+    { name: '국산콩물', lastPrice: 6000 },
+    { name: '복숭아', lastPrice: 8970 },
+    { name: '자두 1kg', lastPrice: 7980 },
+    { name: '참타리버섯', lastPrice: 1480 },
+    { name: '성주 참외', lastPrice: 11980 },
+    { name: '밀양 청양고추', lastPrice: 2980 }
   ];
 
   // Korean Chosung Disassembly Constants
@@ -114,14 +134,18 @@
 
   // --- Default Items Seeding ---
   function createDefaultSavedItems() {
-    return DEFAULT_ITEMS_LIST.map(name => ({
-      name: name,
-      lastPrice: null,
-      useCount: 0,
-      lastUsedAt: null,
-      isDefault: true,
-      priceHistory: []
-    }));
+    return DEFAULT_ITEMS_LIST.map(def => {
+      const name = typeof def === 'string' ? def : def.name;
+      const lastPrice = typeof def === 'object' ? def.lastPrice : null;
+      return {
+        name: name,
+        lastPrice: lastPrice,
+        useCount: lastPrice ? 1 : 0,
+        lastUsedAt: null,
+        isDefault: true,
+        priceHistory: lastPrice ? [{ price: lastPrice, usedAt: new Date().toISOString() }] : []
+      };
+    });
   }
 
   // --- Load & Save State per Mart ---
@@ -161,6 +185,24 @@
           priceHistory: Array.isArray(item.priceHistory) ? item.priceHistory : []
         }));
       }
+
+      // Merge missing default items into savedItems
+      const existingNames = new Set(parsed.map(i => i.name.trim()));
+      DEFAULT_ITEMS_LIST.forEach(def => {
+        const defName = typeof def === 'string' ? def : def.name;
+        const defPrice = typeof def === 'object' ? def.lastPrice : null;
+        if (!existingNames.has(defName)) {
+          parsed.push({
+            name: defName,
+            lastPrice: defPrice,
+            useCount: defPrice ? 1 : 0,
+            lastUsedAt: null,
+            isDefault: true,
+            priceHistory: defPrice ? [{ price: defPrice, usedAt: new Date().toISOString() }] : []
+          });
+        }
+      });
+
       savedItems = parsed;
     } catch (e) {
       savedItems = createDefaultSavedItems();
