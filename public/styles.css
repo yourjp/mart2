@@ -961,10 +961,25 @@ body {
   background: #f1f5f9;
 }
 
-.modal-desc {
-  font-size: 0.9rem;
-  color: var(--text-muted);
+.budget-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 12px;
+}
+
+.budget-input-group .modal-input-wrapper {
+  flex: 1;
+}
+
+.btn-budget-save {
+  white-space: nowrap;
+  padding: 0 16px;
+  height: 52px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
 }
 
 .quick-budget-chips {

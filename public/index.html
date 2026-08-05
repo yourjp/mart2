@@ -27,7 +27,7 @@
         <button type="button" class="btn-budget-setting" id="btn-budget-setting" aria-label="예산 설정">
           ⚙️ 예산 설정
         </button>
-        <span class="app-version-badge" id="app-version-badge">v2.1 (2026-08-05)</span>
+        <span class="app-version-badge" id="app-version-badge">v2.2 (2026-08-05)</span>
         <div class="dashboard-mart-label" id="dashboard-mart-label">이마트 장보기</div>
         <div class="total-display">
           <span class="total-label">현재 총합</span>
@@ -189,7 +189,7 @@
         <button type="button" class="btn-modal-close" id="btn-budget-modal-close" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
-        <div class="input-row" style="margin-bottom: 12px;">
+        <div class="budget-input-group">
           <div class="input-wrapper modal-input-wrapper">
             <input 
               type="text" 
@@ -201,6 +201,9 @@
             >
             <span class="input-unit">원</span>
           </div>
+          <button type="button" class="btn-primary btn-budget-save" id="btn-budget-modal-save">
+            설정 완료
+          </button>
         </div>
         <div class="quick-budget-chips">
           <button type="button" class="btn-budget-chip" data-amount="30000">3만원</button>
@@ -209,9 +212,6 @@
           <button type="button" class="btn-budget-chip" data-amount="100000">10만원</button>
           <button type="button" class="btn-budget-chip" data-amount="300000">30만원</button>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn-primary btn-block" id="btn-budget-modal-save">설정 완료</button>
       </div>
     </div>
   </div>
