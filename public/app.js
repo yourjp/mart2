@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v2.8 (2026-08-05)';
+  const APP_VERSION = 'v3.5 (2026-08-05)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -51,7 +51,6 @@
     { name: '미니 대추토마토', lastPrice: 10890 },
     { name: '그린키위 2.4KG', lastPrice: 17090 },
     { name: '설빙 미숫가루', lastPrice: 13990 },
-    { name: '기린캔 500ML', lastPrice: 1874 },
     { name: '산토리 카쿠빈', lastPrice: 27690 },
     { name: '와인 베라짜노 클라시코', lastPrice: 29990 },
     { name: '와인 소비뇽블랑', lastPrice: 10990 },
@@ -436,7 +435,7 @@
 
     if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
     dashboardMartLabel.textContent = `${currentMart} 장보기`;
-    btnResetSaved.textContent = `🔄 ${currentMart} 품목 초기화`;
+    if (btnResetSaved) btnResetSaved.textContent = `🔄 ${currentMart} 품목 초기화`;
     budgetInput.value = budget.toLocaleString();
 
     // Render Quick Selection Chips for active mart
@@ -666,7 +665,16 @@
       return;
     }
 
-    savedItems.forEach(item => {
+    // Sort items by Frequency (useCount desc) then Korean Alphabetical Order (가나다순)
+    const sortedItems = [...savedItems].sort((a, b) => {
+      const aUse = a.useCount || 0;
+      const bUse = b.useCount || 0;
+      if (bUse !== aUse) return bUse - aUse;
+
+      return a.name.localeCompare(b.name, 'ko');
+    });
+
+    sortedItems.forEach(item => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'chip-btn';
@@ -760,9 +768,7 @@
       const bUse = b.useCount || 0;
       if (bUse !== aUse) return bUse - aUse;
 
-      const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
-      const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
-      return bTime - aTime;
+      return a.name.localeCompare(b.name, 'ko');
     });
 
     const displayList = matches.slice(0, 10);
@@ -1160,15 +1166,17 @@
       }
     });
 
-    // Reset Saved Items
-    btnResetSaved.addEventListener('click', () => {
-      if (confirm(`[${currentMart}] 저장된 품목 및 가격 이력을 초기화하고 기본 품목으로 복원하시겠습니까?`)) {
-        savedItems = createDefaultSavedItems(currentMart);
-        saveState();
-        render();
-        showToast('저장 품목을 기본 상태로 복원했습니다.');
-      }
-    });
+    // Reset Saved Items (Disabled/Hidden)
+    if (btnResetSaved) {
+      btnResetSaved.addEventListener('click', () => {
+        if (confirm(`[${currentMart}] 저장된 품목 및 가격 이력을 초기화하고 기본 품목으로 복원하시겠습니까?`)) {
+          savedItems = createDefaultSavedItems(currentMart);
+          saveState();
+          render();
+          showToast('저장 품목을 기본 상태로 복원했습니다.');
+        }
+      });
+    }
 
     // Upload Items Markdown/CSV/Text File
     if (btnUploadItems && fileInputItems) {

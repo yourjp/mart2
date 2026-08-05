@@ -27,7 +27,7 @@
         <button type="button" class="btn-budget-setting" id="btn-budget-setting" aria-label="예산 설정">
           ⚙️ 예산 설정
         </button>
-        <span class="app-version-badge" id="app-version-badge">v2.8 (2026-08-05)</span>
+        <span class="app-version-badge" id="app-version-badge">v3.5 (2026-08-05)</span>
         <div class="dashboard-mart-label" id="dashboard-mart-label">이마트 장보기</div>
         <div class="total-display">
           <span class="total-label">현재 총합</span>
@@ -97,7 +97,6 @@
         
         <form id="item-form" autocomplete="off" onsubmit="return false;">
           <div class="form-group autocomplete-container">
-            <label for="item-name-input" class="form-label">품목 (선택)</label>
             <input 
               type="text" 
               id="item-name-input" 
@@ -116,7 +115,6 @@
           </div>
 
           <div class="form-group">
-            <label for="item-price-input" class="form-label">가격 (필수)</label>
             <div class="input-wrapper">
               <input 
                 type="text" 
@@ -172,9 +170,6 @@
               📤 품목 마크다운 파일 업로드 (.md)
             </button>
             <input type="file" id="file-input-items" accept=".md,.txt,.csv" style="display:none;">
-            <button type="button" id="btn-reset-saved" class="btn-link">
-              🔄 Emart 품목 초기화
-            </button>
           </div>
         </div>
       </section>
