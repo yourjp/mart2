@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v2.0 (2026-08-05)';
+  const APP_VERSION = 'v2.1 (2026-08-05)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -137,6 +137,7 @@
   const btnAddRecommended = document.getElementById('btn-add-recommended');
   const btnToggleWithinBanner = document.getElementById('btn-toggle-within-banner');
   const btnCloseWithinBanner = document.getElementById('btn-close-within-banner');
+  const btnSmartRecommendation = document.getElementById('btn-smart-recommendation');
 
   const budgetInput = document.getElementById('budget-input');
   const itemForm = document.getElementById('item-form');
@@ -1018,6 +1019,31 @@
         recommendationDismissed = true;
         withinBudgetBanner.classList.add('hidden');
         showToast('추천 카드를 닫았습니다.');
+      });
+    }
+
+    // Smart Recommendation Button on Bottom-Left of Display Board
+    if (btnSmartRecommendation) {
+      btnSmartRecommendation.addEventListener('click', () => {
+        recommendationDismissed = false;
+
+        if (recommendationBanner) recommendationBanner.classList.remove('collapsed');
+        if (withinBudgetBanner) withinBudgetBanner.classList.remove('collapsed');
+
+        render();
+
+        const isOverVisibleNow = recommendationBanner ? !recommendationBanner.classList.contains('hidden') : false;
+        const isWithinVisibleNow = withinBudgetBanner ? !withinBudgetBanner.classList.contains('hidden') : false;
+
+        if (isOverVisibleNow) {
+          recommendationBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          showToast('💡 예산 초과 품목 추천 카드가 활성화되었습니다.');
+        } else if (isWithinVisibleNow) {
+          withinBudgetBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          showToast('🎁 남은 예산 스마트 추천 카드가 활성화되었습니다.');
+        } else {
+          showToast('💡 스마트 추천은 예산 70% 이상 달성 또는 예산 초과 시 자동 활성화됩니다.');
+        }
       });
     }
 

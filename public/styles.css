@@ -152,6 +152,29 @@ body {
   border-color: #ffffff;
 }
 
+.btn-smart-recommendation {
+  position: absolute;
+  bottom: 10px;
+  left: 14px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(0, 0, 0, 0.25);
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
+}
+
+.btn-smart-recommendation:hover,
+.btn-smart-recommendation:active {
+  background: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  border-color: #ffffff;
+}
+
 .app-version-badge {
   position: absolute;
   top: 10px;
