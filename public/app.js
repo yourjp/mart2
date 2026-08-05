@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v2.2 (2026-08-05)';
+  const APP_VERSION = 'v2.6 (2026-08-05)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -47,9 +47,6 @@
   ];
 
   const DEFAULT_ITEMS_COSTCO = [
-    { name: '커클랜드 생수', lastPrice: null },
-    { name: '맥주(5개묶음)', lastPrice: null },
-    { name: '계란 30구', lastPrice: null },
     { name: '돼지고기(대용량)', lastPrice: null },
     { name: '소고기(대용량)', lastPrice: null },
     { name: '크로와상', lastPrice: null },
@@ -71,7 +68,15 @@
     { name: '궁 쇠고기육포 280G', lastPrice: 19990 },
     { name: '불고기 브리또', lastPrice: 11490 },
     { name: '새우 31–40 908G', lastPrice: 23490 },
-    { name: '새우 50–70 908G', lastPrice: 22490 }
+    { name: '새우 50–70 908G', lastPrice: 22490 },
+    { name: '기린캔 8개', lastPrice: 14990 },
+    { name: '유기농 딸기쨈(2)', lastPrice: 14990 },
+    { name: '리코타치즈', lastPrice: 12990 },
+    { name: '미니 까망베르', lastPrice: 12990 },
+    { name: '캠벨포도2kg', lastPrice: 22590 },
+    { name: '새우 11-15 680G', lastPrice: 25490 },
+    { name: '욕실클리너', lastPrice: 13790 },
+    { name: '크림치즈플레인', lastPrice: 12790 }
   ];
 
   function getDefaultItemsForMart(mart) {
@@ -109,6 +114,7 @@
   let cart = [];
   let savedItems = [];
   let autoNameIndex = 1;
+  let recommendationDismissed = false;
 
   // --- DOM Elements ---
   const tabEmart = document.getElementById('tab-emart');
@@ -607,7 +613,16 @@
     withinBudgetBanner.classList.remove('hidden');
 
     btnAddRecommended.onclick = () => {
-      const recPrice = bestCandidate.lastPrice || 0;
+      if (!bestCandidate.lastPrice || bestCandidate.lastPrice <= 0) {
+        itemNameInput.value = bestCandidate.name;
+        itemPriceInput.value = '';
+        priceHelper.classList.add('hidden');
+        itemPriceInput.focus();
+        showToast(`'${bestCandidate.name}' 가격을 입력해 주세요.`);
+        return;
+      }
+
+      const recPrice = bestCandidate.lastPrice;
       cart.push({
         id: 'item-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
         name: bestCandidate.name,
