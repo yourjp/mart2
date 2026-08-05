@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v4.3 (2026-08-05)';
+  const APP_VERSION = 'v4.3 (2026-08-06)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -673,7 +673,7 @@
       }
 
       const recPrice = bestCandidate.lastPrice;
-      cart.push({
+      cart.unshift({
         id: 'item-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
         name: bestCandidate.name,
         price: recPrice,
@@ -1004,7 +1004,7 @@
       priceChange: priceChange
     };
 
-    cart.push(cartItem);
+    cart.unshift(cartItem);
     saveState();
     render();
 
