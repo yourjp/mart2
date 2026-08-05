@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.8 (2026-08-04)';
+  const APP_VERSION = 'v1.9 (2026-08-05)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -120,13 +120,23 @@
   const statusBadgeEl = document.getElementById('status-badge');
   const statusValueEl = document.getElementById('status-value');
 
+  const btnBudgetSetting = document.getElementById('btn-budget-setting');
+  const budgetModal = document.getElementById('budget-modal');
+  const btnBudgetModalClose = document.getElementById('btn-budget-modal-close');
+  const btnBudgetModalSave = document.getElementById('btn-budget-modal-save');
+  const modalMartName = document.getElementById('modal-mart-name');
+
   const recommendationBanner = document.getElementById('recommendation-banner');
   const recommendationText = document.getElementById('recommendation-text');
   const btnRemoveRecommended = document.getElementById('btn-remove-recommended');
+  const btnToggleOverBanner = document.getElementById('btn-toggle-over-banner');
+  const btnCloseOverBanner = document.getElementById('btn-close-over-banner');
 
   const withinBudgetBanner = document.getElementById('within-budget-banner');
   const withinBudgetText = document.getElementById('within-budget-text');
   const btnAddRecommended = document.getElementById('btn-add-recommended');
+  const btnToggleWithinBanner = document.getElementById('btn-toggle-within-banner');
+  const btnCloseWithinBanner = document.getElementById('btn-close-within-banner');
 
   const budgetInput = document.getElementById('budget-input');
   const itemForm = document.getElementById('item-form');
@@ -492,7 +502,9 @@
 
   // Render Recommendation Banner when budget exceeded
   function renderRecommendationBanner(overAmount) {
-    if (cart.length === 0) {
+    withinBudgetBanner.classList.add('hidden');
+
+    if (recommendationDismissed || cart.length === 0) {
       recommendationBanner.classList.add('hidden');
       return;
     }
@@ -518,6 +530,7 @@
         const itemIdx = cart.findIndex(i => i.id === closestItem.id);
         if (itemIdx !== -1) {
           cart.splice(itemIdx, 1);
+          recommendationDismissed = false;
           saveState();
           render();
           showToast(`'${closestItem.name}' 항목을 장바구니에서 제거했습니다.`);
@@ -530,8 +543,10 @@
 
   // Render Recommendation Banner when within budget (activates when totalAmount >= 70% of budget)
   function renderWithinBudgetRecommendation(remainingAmount, totalAmount, budgetAmount) {
+    recommendationBanner.classList.add('hidden');
+
     // Activate only when totalAmount is at least 70% of budget (and remaining > 0)
-    if (remainingAmount <= 0 || budgetAmount <= 0 || (totalAmount / budgetAmount) < 0.70) {
+    if (recommendationDismissed || remainingAmount <= 0 || budgetAmount <= 0 || (totalAmount / budgetAmount) < 0.70) {
       withinBudgetBanner.classList.add('hidden');
       return;
     }
@@ -915,27 +930,94 @@
       });
     }
 
-    // Budget input change
-    budgetInput.addEventListener('input', () => {
-      const clean = budgetInput.value.replace(/[^0-9]/g, '');
-      const parsed = parseInt(clean, 10);
-      budget = isNaN(parsed) ? 0 : parsed;
-      saveState();
-      render();
+    // Top-Left Budget Setting Button & Modal Handlers
+    if (btnBudgetSetting && budgetModal) {
+      btnBudgetSetting.addEventListener('click', () => {
+        if (modalMartName) modalMartName.textContent = currentMart;
+        if (budgetInput) budgetInput.value = budget ? budget.toLocaleString() : '';
+        budgetModal.classList.remove('hidden');
+        setTimeout(() => budgetInput && budgetInput.focus(), 100);
+      });
+    }
+
+    if (btnBudgetModalClose && budgetModal) {
+      btnBudgetModalClose.addEventListener('click', () => {
+        budgetModal.classList.add('hidden');
+      });
+      budgetModal.addEventListener('click', (e) => {
+        if (e.target === budgetModal) {
+          budgetModal.classList.add('hidden');
+        }
+      });
+    }
+
+    if (btnBudgetModalSave && budgetModal) {
+      btnBudgetModalSave.addEventListener('click', () => {
+        const val = budgetInput ? budgetInput.value.replace(/[^0-9]/g, '') : '';
+        const parsed = parseInt(val, 10);
+        budget = isNaN(parsed) ? 0 : parsed;
+        saveState();
+        render();
+        budgetModal.classList.add('hidden');
+        showToast(`[${currentMart}] 목표 예산이 ${budget.toLocaleString()}원으로 변경되었습니다.`);
+      });
+    }
+
+    // Quick budget chips in modal
+    const quickBudgetChips = document.querySelectorAll('.btn-budget-chip');
+    quickBudgetChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const amt = parseInt(chip.getAttribute('data-amount'), 10);
+        if (!isNaN(amt)) {
+          budget = amt;
+          if (budgetInput) budgetInput.value = amt.toLocaleString();
+          saveState();
+          render();
+          budgetModal.classList.add('hidden');
+          showToast(`[${currentMart}] 목표 예산이 ${budget.toLocaleString()}원으로 변경되었습니다.`);
+        }
+      });
     });
 
-    // Budget Card Collapse / Expand Toggle
-    const budgetCard = document.getElementById('budget-card');
-    const budgetCardHeader = document.getElementById('budget-card-header');
-    const btnToggleBudget = document.getElementById('btn-toggle-budget');
+    // Budget input live sync
+    if (budgetInput) {
+      budgetInput.addEventListener('input', () => {
+        const clean = budgetInput.value.replace(/[^0-9]/g, '');
+        const parsed = parseInt(clean, 10);
+        budget = isNaN(parsed) ? 0 : parsed;
+        saveState();
+        render();
+      });
+    }
 
-    if (budgetCardHeader && budgetCard) {
-      budgetCardHeader.addEventListener('click', () => {
-        budgetCard.classList.toggle('collapsed');
-        const isCollapsed = budgetCard.classList.contains('collapsed');
-        if (btnToggleBudget) {
-          btnToggleBudget.textContent = isCollapsed ? '▼ 펴기' : '▲ 접기';
-        }
+    // Recommendation Banner Controls (Toggle & Delete/Close)
+    if (btnToggleOverBanner && recommendationBanner) {
+      btnToggleOverBanner.addEventListener('click', () => {
+        recommendationBanner.classList.toggle('collapsed');
+        btnToggleOverBanner.textContent = recommendationBanner.classList.contains('collapsed') ? '▼' : '▲';
+      });
+    }
+
+    if (btnCloseOverBanner && recommendationBanner) {
+      btnCloseOverBanner.addEventListener('click', () => {
+        recommendationDismissed = true;
+        recommendationBanner.classList.add('hidden');
+        showToast('추천 카드를 닫았습니다.');
+      });
+    }
+
+    if (btnToggleWithinBanner && withinBudgetBanner) {
+      btnToggleWithinBanner.addEventListener('click', () => {
+        withinBudgetBanner.classList.toggle('collapsed');
+        btnToggleWithinBanner.textContent = withinBudgetBanner.classList.contains('collapsed') ? '▼' : '▲';
+      });
+    }
+
+    if (btnCloseWithinBanner && withinBudgetBanner) {
+      btnCloseWithinBanner.addEventListener('click', () => {
+        recommendationDismissed = true;
+        withinBudgetBanner.classList.add('hidden');
+        showToast('추천 카드를 닫았습니다.');
       });
     }
 
@@ -1104,6 +1186,39 @@
       });
     }
 
+    // Helper: Client-side Markdown File Download
+    function downloadMarkdownFile(martName, cartItems, totalAmount) {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const timeStr = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+
+      let mdText = `## ${timeStr} (${martName || '이마트'})\n\n`;
+      mdText += `| 품목 | 단가 | 수량 | 소계 |\n`;
+      mdText += `|---|---|---|---|\n`;
+
+      cartItems.forEach(item => {
+        const unitPriceStr = `${Number(item.price).toLocaleString()}원`;
+        const subtotalStr = `${(Number(item.price) * Number(item.quantity)).toLocaleString()}원`;
+        mdText += `| ${item.name} | ${unitPriceStr} | ${item.quantity} | ${subtotalStr} |\n`;
+      });
+
+      const formattedTotal = `${Number(totalAmount).toLocaleString()}원`;
+      mdText += `\n**총합계: ${formattedTotal}**\n\n---\n\n`;
+
+      const blob = new Blob([mdText], { type: 'text/markdown;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `구매내역_${year}${month}${day}_${hours}${minutes}.md`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
     // Save Record API ("계산결과 저장")
     btnSaveRecord.addEventListener('click', async () => {
       if (cart.length === 0) {
@@ -1127,14 +1242,21 @@
         });
 
         const data = await res.json();
-        if (data.success) {
-          alert(`✅ ${data.message}`);
+        if (data && data.success) {
+          showToast(`✅ ${data.message}`);
+          if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            downloadMarkdownFile(currentMart, cart, totalAmount);
+          }
         } else {
-          alert(`⚠️ ${data.message}`);
+          // If serverless read-only filesystem or server error occurred
+          console.warn('Server file save failed, falling back to browser download:', data);
+          downloadMarkdownFile(currentMart, cart, totalAmount);
+          showToast('📥 서버리스/모바일 환경으로 인해 구매내역.md 파일이 기기로 즉시 다운로드되었습니다!');
         }
       } catch (err) {
-        console.error('Save record failed:', err);
-        alert('⚠️ 서버 통신 중 오류가 발생했습니다. (로컬 실행 환경이 아닐 경우 파일 저장이 지원되지 않습니다.)');
+        console.error('Save record network error, downloading client-side:', err);
+        downloadMarkdownFile(currentMart, cart, totalAmount);
+        showToast('📥 구매내역.md 파일이 기기로 다운로드되었습니다!');
       }
     });
   }
