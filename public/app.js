@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v2.6 (2026-08-05)';
+  const APP_VERSION = 'v2.8 (2026-08-05)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -47,11 +47,6 @@
   ];
 
   const DEFAULT_ITEMS_COSTCO = [
-    { name: '돼지고기(대용량)', lastPrice: null },
-    { name: '소고기(대용량)', lastPrice: null },
-    { name: '크로와상', lastPrice: null },
-    { name: '베이글', lastPrice: null },
-    { name: '우유 2입', lastPrice: null },
     { name: '토마토 4KG', lastPrice: 11890 },
     { name: '미니 대추토마토', lastPrice: 10890 },
     { name: '그린키위 2.4KG', lastPrice: 17090 },
@@ -268,6 +263,9 @@
 
         if (mart === 'Emart') {
           parsed = parsed.filter(i => i.name !== '행사 우유' && i.name !== '소화 우유');
+        } else if (mart === '코스트코') {
+          const costcoDefaultNames = new Set(DEFAULT_ITEMS_COSTCO.map(i => i.name.trim()));
+          parsed = parsed.filter(i => costcoDefaultNames.has(i.name.trim()));
         }
       }
 
@@ -323,30 +321,46 @@
 
       const data = await res.json();
       if (data.success && Array.isArray(data.items) && data.items.length > 0) {
-        const itemMap = new Map(savedItems.map(i => [i.name.trim(), i]));
-
-        data.items.forEach(mdItem => {
-          const name = mdItem.name.trim();
-          const price = mdItem.lastPrice;
-
-          if (itemMap.has(name)) {
-            const existing = itemMap.get(name);
-            if (price !== null && price !== undefined) {
-              existing.lastPrice = price;
-            }
-          } else {
-            const newItem = {
+        if (canonicalMart === '코스트코') {
+          const existingMap = new Map(savedItems.map(i => [i.name.trim(), i]));
+          savedItems = data.items.map(mdItem => {
+            const name = mdItem.name.trim();
+            const existing = existingMap.get(name);
+            return {
               name: name,
-              lastPrice: price,
-              useCount: price ? 1 : 0,
-              lastUsedAt: null,
+              lastPrice: mdItem.lastPrice,
+              useCount: existing ? (existing.useCount || 0) : (mdItem.lastPrice ? 1 : 0),
+              lastUsedAt: existing ? existing.lastUsedAt : null,
               isDefault: true,
-              priceHistory: price ? [{ price: price, usedAt: new Date().toISOString() }] : []
+              priceHistory: mdItem.lastPrice ? [{ price: mdItem.lastPrice, usedAt: new Date().toISOString() }] : []
             };
-            savedItems.push(newItem);
-            itemMap.set(name, newItem);
-          }
-        });
+          });
+        } else {
+          const itemMap = new Map(savedItems.map(i => [i.name.trim(), i]));
+
+          data.items.forEach(mdItem => {
+            const name = mdItem.name.trim();
+            const price = mdItem.lastPrice;
+
+            if (itemMap.has(name)) {
+              const existing = itemMap.get(name);
+              if (price !== null && price !== undefined) {
+                existing.lastPrice = price;
+              }
+            } else {
+              const newItem = {
+                name: name,
+                lastPrice: price,
+                useCount: price ? 1 : 0,
+                lastUsedAt: null,
+                isDefault: true,
+                priceHistory: price ? [{ price: price, usedAt: new Date().toISOString() }] : []
+              };
+              savedItems.push(newItem);
+              itemMap.set(name, newItem);
+            }
+          });
+        }
 
         saveState();
         render();
