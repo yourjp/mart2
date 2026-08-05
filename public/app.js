@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v3.5 (2026-08-05)';
+  const APP_VERSION = 'v4.2 (2026-08-05)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -102,6 +102,23 @@
     return result;
   }
 
+  // --- Helper: Normalize Tense Consonants (ㄲ->ㄱ, ㄸ->ㄷ, ㅃ->ㅂ, ㅆ->ㅅ, ㅉ->ㅈ) ---
+  function normalizeTenseConsonants(str) {
+    if (!str) return '';
+    return str
+      .replace(/ㄲ/g, 'ㄱ')
+      .replace(/ㄸ/g, 'ㄷ')
+      .replace(/ㅃ/g, 'ㅂ')
+      .replace(/ㅆ/g, 'ㅅ')
+      .replace(/ㅉ/g, 'ㅈ');
+  }
+
+  // --- Helper: Check if string is Chosung/Consonant only ---
+  function isConsonantOnly(str) {
+    if (!str) return false;
+    return /^[ㄱ-ㅎ0-9\s]+$/.test(str);
+  }
+
   // --- State Variables ---
   let currentMart = 'Emart';
   let budget = DEFAULT_BUDGET_EMART;
@@ -109,6 +126,7 @@
   let savedItems = [];
   let autoNameIndex = 1;
   let recommendationDismissed = false;
+  let currentMatches = [];
 
   // --- DOM Elements ---
   const tabEmart = document.getElementById('tab-emart');
@@ -577,7 +595,7 @@
 
     const cartNames = new Set(cart.map(i => i.name.trim()));
 
-    // Filter savedItems: lastPrice <= remainingAmount, not in cart, lastPrice > 0
+    // 1. Primary candidates: lastPrice <= remainingAmount, not in cart, lastPrice > 0
     let candidates = savedItems.filter(item => 
       item.lastPrice && 
       item.lastPrice > 0 && 
@@ -585,9 +603,39 @@
       !cartNames.has(item.name.trim())
     );
 
-    // Fallback if forceShow is true and no candidate fits price: pick any saved item not in cart
-    if (candidates.length === 0 && forceShow) {
-      candidates = savedItems.filter(item => !cartNames.has(item.name.trim()));
+    let isOverBudgetFallback = false;
+
+    // 2. Fallback when all remaining un-carted items exceed remaining budget
+    if (candidates.length === 0) {
+      const remainingUncarted = savedItems.filter(item => !cartNames.has(item.name.trim()));
+      if (remainingUncarted.length > 0) {
+        // Sort strictly by Purchase Frequency (useCount desc), then Korean alphabetical order (가나다순)
+        remainingUncarted.sort((a, b) => {
+          const aUse = a.useCount || 0;
+          const bUse = b.useCount || 0;
+          if (bUse !== aUse) return bUse - aUse;
+
+          return a.name.localeCompare(b.name, 'ko');
+        });
+        candidates = [remainingUncarted[0]];
+        isOverBudgetFallback = true;
+      }
+    } else {
+      // Sort primary candidates fitting remaining budget:
+      // 1st Priority: Highest Price <= remainingAmount (lastPrice desc)
+      // 2nd Priority: Purchase Frequency (useCount desc)
+      // 3rd Priority: Korean Alphabetical Order (가나다순)
+      candidates.sort((a, b) => {
+        const aPrice = a.lastPrice || 0;
+        const bPrice = b.lastPrice || 0;
+        if (bPrice !== aPrice) return bPrice - aPrice;
+
+        const aUse = a.useCount || 0;
+        const bUse = b.useCount || 0;
+        if (bUse !== aUse) return bUse - aUse;
+
+        return a.name.localeCompare(b.name, 'ko');
+      });
     }
 
     if (candidates.length === 0) {
@@ -604,25 +652,14 @@
       return;
     }
 
-    // Sort candidates:
-    // 1. Frequently used (useCount)
-    // 2. Recently used (lastUsedAt)
-    // 3. Highest price <= remaining (to maximize budget utilization)
-    candidates.sort((a, b) => {
-      const aUse = a.useCount || 0;
-      const bUse = b.useCount || 0;
-      if (bUse !== aUse) return bUse - aUse;
-
-      const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
-      const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
-      if (bTime !== aTime) return bTime - aTime;
-
-      return (b.lastPrice || 0) - (a.lastPrice || 0);
-    });
-
     const bestCandidate = candidates[0];
     const priceDisplay = bestCandidate.lastPrice ? `${bestCandidate.lastPrice.toLocaleString()}원` : '가격 입력';
-    withinBudgetText.innerHTML = `남은 예산으로 <strong>'${escapeHtml(bestCandidate.name)}'</strong> (${priceDisplay})을 담아보세요!`;
+
+    if (isOverBudgetFallback) {
+      withinBudgetText.innerHTML = `자주 찾는 <strong>'${escapeHtml(bestCandidate.name)}'</strong> (${priceDisplay})을 추천해 드립니다!`;
+    } else {
+      withinBudgetText.innerHTML = `남은 예산으로 <strong>'${escapeHtml(bestCandidate.name)}'</strong> (${priceDisplay})을 담아보세요!`;
+    }
     withinBudgetBanner.classList.remove('hidden');
 
     btnAddRecommended.onclick = () => {
@@ -665,8 +702,12 @@
       return;
     }
 
-    // Sort items by Frequency (useCount desc) then Korean Alphabetical Order (가나다순)
+    // Sort items by Low Price Ascending (낮은 가격순), then Frequency (useCount desc), then Korean Order (가나다순)
     const sortedItems = [...savedItems].sort((a, b) => {
+      const aPrice = (typeof a.lastPrice === 'number' && a.lastPrice > 0) ? a.lastPrice : Infinity;
+      const bPrice = (typeof b.lastPrice === 'number' && b.lastPrice > 0) ? b.lastPrice : Infinity;
+      if (aPrice !== bPrice) return aPrice - bPrice;
+
       const aUse = a.useCount || 0;
       const bUse = b.useCount || 0;
       if (bUse !== aUse) return bUse - aUse;
@@ -728,7 +769,7 @@
     });
   }
 
-  // --- Autocomplete Logic ---
+  // --- Autocomplete Logic (Strict Chosung Boundary Matching) ---
   function updateAutocomplete() {
     const query = itemNameInput.value.trim();
     let matches = [];
@@ -738,16 +779,41 @@
     } else {
       const queryLower = query.toLowerCase();
       const queryChosung = getChosung(queryLower);
+      const normQueryLower = normalizeTenseConsonants(queryLower);
+      const normQueryChosung = normalizeTenseConsonants(queryChosung);
+      const isConsonantSearch = isConsonantOnly(queryLower);
 
       matches = savedItems.filter(item => {
         const nameLower = item.name.toLowerCase();
         const nameChosung = getChosung(nameLower);
 
-        return (
-          nameLower.startsWith(queryLower) ||
-          nameLower.includes(queryLower) ||
-          nameChosung.includes(queryChosung)
-        );
+        const normNameLower = normalizeTenseConsonants(nameLower);
+        const normNameChosung = normalizeTenseConsonants(nameChosung);
+
+        if (isConsonantSearch) {
+          // Strict Chosung Search: Must match from start of full name or start of any word!
+          const chosungMatch = normNameChosung.startsWith(normQueryChosung) || nameChosung.startsWith(queryChosung);
+          
+          const words = nameLower.split(/[\s()_-]+/);
+          const wordChosungMatch = words.some(w => {
+            if (!w) return false;
+            const wChosung = getChosung(w);
+            const normWChosung = normalizeTenseConsonants(wChosung);
+            return wChosung.startsWith(queryChosung) || normWChosung.startsWith(normQueryChosung);
+          });
+
+          return chosungMatch || wordChosungMatch;
+        } else {
+          // Full Text Search
+          return (
+            nameLower.startsWith(queryLower) ||
+            nameLower.includes(queryLower) ||
+            normNameLower.startsWith(normQueryLower) ||
+            normNameLower.includes(normQueryLower) ||
+            nameChosung.startsWith(queryChosung) ||
+            normNameChosung.startsWith(normQueryChosung)
+          );
+        }
       });
     }
 
@@ -770,6 +836,8 @@
 
       return a.name.localeCompare(b.name, 'ko');
     });
+
+    currentMatches = matches;
 
     const displayList = matches.slice(0, 10);
 
@@ -1110,9 +1178,19 @@
     // Quick price input helper listener
     itemPriceInput.addEventListener('input', updatePriceHelper);
 
-    // Autocomplete listeners
+    // Autocomplete listeners & Enter Key Selection for Single Match (Focuses Price Field for Review)
     itemNameInput.addEventListener('input', updateAutocomplete);
     itemNameInput.addEventListener('focus', updateAutocomplete);
+    itemNameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const query = itemNameInput.value.trim();
+        if (query && currentMatches && currentMatches.length === 1) {
+          const match = currentMatches[0];
+          e.preventDefault();
+          selectAutocompleteItem(match);
+        }
+      }
+    });
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.autocomplete-container')) {
         autocompleteList.classList.add('hidden');
