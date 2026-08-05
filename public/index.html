@@ -27,7 +27,7 @@
         <button type="button" class="btn-budget-setting" id="btn-budget-setting" aria-label="예산 설정">
           ⚙️ 예산 설정
         </button>
-        <span class="app-version-badge" id="app-version-badge">v4.3 (2026-08-06)</span>
+        <span class="app-version-badge" id="app-version-badge">v4.4 (2026-08-06)</span>
         <div class="dashboard-mart-label" id="dashboard-mart-label">이마트 장보기</div>
         <div class="total-display">
           <span class="total-label">현재 총합</span>
@@ -96,16 +96,18 @@
         </div>
         
         <form id="item-form" autocomplete="off" onsubmit="return false;">
-          <div class="form-group autocomplete-container">
-            <input 
-              type="text" 
-              id="item-name-input" 
-              class="large-input" 
-              placeholder="예: 맥주, 우유 (미입력시 자동지정)"
-              aria-label="품목 입력"
-            >
-            <!-- Autocomplete Suggestions List -->
-            <ul id="autocomplete-list" class="autocomplete-list hidden" role="listbox"></ul>
+          <div class="form-group">
+            <div class="autocomplete-container">
+              <input 
+                type="text" 
+                id="item-name-input" 
+                class="large-input" 
+                placeholder="예: 맥주, 우유 (미입력시 자동지정)"
+                aria-label="품목 입력"
+              >
+              <!-- Autocomplete Suggestions List -->
+              <ul id="autocomplete-list" class="autocomplete-list hidden" role="listbox"></ul>
+            </div>
             
             <!-- Quick Item Selection Chips -->
             <div class="quick-chips-wrapper">
