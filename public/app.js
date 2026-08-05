@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v4.4 (2026-08-06)';
+  const APP_VERSION = 'v4.5 (2026-08-06)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -595,7 +595,7 @@
 
     const cartNames = new Set(cart.map(i => i.name.trim()));
 
-    // 1. Primary candidates: lastPrice <= remainingAmount, not in cart, lastPrice > 0
+    // Candidates: strictly not in cart, lastPrice > 0, lastPrice <= remainingAmount
     let candidates = savedItems.filter(item => 
       item.lastPrice && 
       item.lastPrice > 0 && 
@@ -603,44 +603,9 @@
       !cartNames.has(item.name.trim())
     );
 
-    let isOverBudgetFallback = false;
-
-    // 2. Fallback when all remaining un-carted items exceed remaining budget
-    if (candidates.length === 0) {
-      const remainingUncarted = savedItems.filter(item => !cartNames.has(item.name.trim()));
-      if (remainingUncarted.length > 0) {
-        // Sort strictly by Purchase Frequency (useCount desc), then Korean alphabetical order (가나다순)
-        remainingUncarted.sort((a, b) => {
-          const aUse = a.useCount || 0;
-          const bUse = b.useCount || 0;
-          if (bUse !== aUse) return bUse - aUse;
-
-          return a.name.localeCompare(b.name, 'ko');
-        });
-        candidates = [remainingUncarted[0]];
-        isOverBudgetFallback = true;
-      }
-    } else {
-      // Sort primary candidates fitting remaining budget:
-      // 1st Priority: Highest Price <= remainingAmount (lastPrice desc)
-      // 2nd Priority: Purchase Frequency (useCount desc)
-      // 3rd Priority: Korean Alphabetical Order (가나다순)
-      candidates.sort((a, b) => {
-        const aPrice = a.lastPrice || 0;
-        const bPrice = b.lastPrice || 0;
-        if (bPrice !== aPrice) return bPrice - aPrice;
-
-        const aUse = a.useCount || 0;
-        const bUse = b.useCount || 0;
-        if (bUse !== aUse) return bUse - aUse;
-
-        return a.name.localeCompare(b.name, 'ko');
-      });
-    }
-
     if (candidates.length === 0) {
       if (forceShow && cart.length > 0) {
-        withinBudgetText.innerHTML = `등록된 모든 품목이 담겨 있습니다! <strong>수량을 조절하거나 새로운 품목</strong>을 담아보세요.`;
+        withinBudgetText.innerHTML = `등록된 모든 품목이 담겨 있거나 남은 예산 이하인 추천 품목이 없습니다.`;
         withinBudgetBanner.classList.remove('hidden');
         btnAddRecommended.onclick = () => {
           if (itemNameInput) itemNameInput.focus();
@@ -652,14 +617,27 @@
       return;
     }
 
+    // Option B Sorting (Strictly for un-carted items <= remainingAmount):
+    // 1st Priority: Purchase Frequency (useCount desc - 자주 구매한 순)
+    // 2nd Priority: Korean Alphabetical Order (가나다순)
+    // 3rd Priority: Lowest Price (lastPrice asc - 낮은 가격순)
+    candidates.sort((a, b) => {
+      const aUse = a.useCount || 0;
+      const bUse = b.useCount || 0;
+      if (bUse !== aUse) return bUse - aUse;
+
+      const compName = a.name.localeCompare(b.name, 'ko');
+      if (compName !== 0) return compName;
+
+      const aPrice = a.lastPrice || 0;
+      const bPrice = b.lastPrice || 0;
+      return aPrice - bPrice;
+    });
+
     const bestCandidate = candidates[0];
     const priceDisplay = bestCandidate.lastPrice ? `${bestCandidate.lastPrice.toLocaleString()}원` : '가격 입력';
 
-    if (isOverBudgetFallback) {
-      withinBudgetText.innerHTML = `자주 찾는 <strong>'${escapeHtml(bestCandidate.name)}'</strong> (${priceDisplay})을 추천해 드립니다!`;
-    } else {
-      withinBudgetText.innerHTML = `남은 예산으로 <strong>'${escapeHtml(bestCandidate.name)}'</strong> (${priceDisplay})을 담아보세요!`;
-    }
+    withinBudgetText.innerHTML = `남은 예산으로 자주 찾는 <strong>'${escapeHtml(bestCandidate.name)}'</strong> (${priceDisplay})을 담아보세요!`;
     withinBudgetBanner.classList.remove('hidden');
 
     btnAddRecommended.onclick = () => {

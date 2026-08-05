@@ -1,6 +1,6 @@
 {
   "name": "shopping-budget-app",
-  "version": "4.4.0",
+  "version": "4.5.0",
   "description": "Node.js 기반 마트 장보기 예산 계산기 웹 앱",
   "main": "server.js",
   "scripts": {
