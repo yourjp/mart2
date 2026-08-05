@@ -7,3 +7,6 @@
 ## 2. Version & Modified Date Policy (버전 및 수정 날짜 표시 규칙)
 - 코드를 수정하거나 기능을 업데이트할 때마다 `version x.x (YYYY-MM-DD)` 형식(예: `v1.1 (2026-08-04)`)으로 버전을 변경한다.
 - 변경된 버전과 수정 날짜 정보는 전광판 우측 상단(`#app-version-badge`), `public/app.js`(`APP_VERSION`), `package.json`에 반드시 함께 반영하여 표시해야 한다.
+
+## 3. Change History Policy (변경 이력 관리 규칙)
+- 코드를 수정하거나 신규 기능을 추가/업데이트할 때마다 `history.md` 파일에 해당 버전과 변경 내역(신규 기능, 정밀 알고리즘 개선, UI/UX 변경 등)을 누적하여 체계적으로 기록해야 한다.
