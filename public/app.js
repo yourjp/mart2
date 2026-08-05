@@ -542,12 +542,16 @@
     }
   }
 
-  // Render Recommendation Banner when within budget (activates when totalAmount >= 70% of budget)
-  function renderWithinBudgetRecommendation(remainingAmount, totalAmount, budgetAmount) {
+  // Render Recommendation Banner when within budget (activates when totalAmount >= 70% of budget or forceShow)
+  function renderWithinBudgetRecommendation(remainingAmount, totalAmount, budgetAmount, forceShow = false) {
     recommendationBanner.classList.add('hidden');
 
-    // Activate only when totalAmount is at least 70% of budget (and remaining > 0)
-    if (recommendationDismissed || remainingAmount <= 0 || budgetAmount <= 0 || (totalAmount / budgetAmount) < 0.70) {
+    if (recommendationDismissed || remainingAmount < 0 || budgetAmount <= 0) {
+      withinBudgetBanner.classList.add('hidden');
+      return;
+    }
+
+    if (!forceShow && (totalAmount / budgetAmount) < 0.70) {
       withinBudgetBanner.classList.add('hidden');
       return;
     }
@@ -555,14 +559,28 @@
     const cartNames = new Set(cart.map(i => i.name.trim()));
 
     // Filter savedItems: lastPrice <= remainingAmount, not in cart, lastPrice > 0
-    const candidates = savedItems.filter(item => 
+    let candidates = savedItems.filter(item => 
       item.lastPrice && 
       item.lastPrice > 0 && 
       item.lastPrice <= remainingAmount && 
       !cartNames.has(item.name.trim())
     );
 
+    // Fallback if forceShow is true and no candidate fits price: pick any saved item not in cart
+    if (candidates.length === 0 && forceShow) {
+      candidates = savedItems.filter(item => !cartNames.has(item.name.trim()));
+    }
+
     if (candidates.length === 0) {
+      if (forceShow && cart.length > 0) {
+        withinBudgetText.innerHTML = `등록된 모든 품목이 담겨 있습니다! <strong>수량을 조절하거나 새로운 품목</strong>을 담아보세요.`;
+        withinBudgetBanner.classList.remove('hidden');
+        btnAddRecommended.onclick = () => {
+          if (itemNameInput) itemNameInput.focus();
+          showToast('새 품목 이름을 입력해주세요.');
+        };
+        return;
+      }
       withinBudgetBanner.classList.add('hidden');
       return;
     }
@@ -580,18 +598,20 @@
       const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
       if (bTime !== aTime) return bTime - aTime;
 
-      return b.lastPrice - a.lastPrice;
+      return (b.lastPrice || 0) - (a.lastPrice || 0);
     });
 
     const bestCandidate = candidates[0];
-    withinBudgetText.innerHTML = `남은 예산으로 <strong>'${escapeHtml(bestCandidate.name)}'</strong> (${bestCandidate.lastPrice.toLocaleString()}원)을 담아보세요!`;
+    const priceDisplay = bestCandidate.lastPrice ? `${bestCandidate.lastPrice.toLocaleString()}원` : '가격 입력';
+    withinBudgetText.innerHTML = `남은 예산으로 <strong>'${escapeHtml(bestCandidate.name)}'</strong> (${priceDisplay})을 담아보세요!`;
     withinBudgetBanner.classList.remove('hidden');
 
     btnAddRecommended.onclick = () => {
+      const recPrice = bestCandidate.lastPrice || 0;
       cart.push({
         id: 'item-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
         name: bestCandidate.name,
-        price: bestCandidate.lastPrice,
+        price: recPrice,
         quantity: 1,
         isAutoName: false,
         priceChange: { type: 'same' }
@@ -600,6 +620,7 @@
       bestCandidate.useCount = (bestCandidate.useCount || 0) + 1;
       bestCandidate.lastUsedAt = new Date().toISOString();
 
+      recommendationDismissed = false;
       saveState();
       render();
       showToast(`'${bestCandidate.name}' 항목을 장바구니에 담았습니다.`);
@@ -1030,19 +1051,23 @@
         if (recommendationBanner) recommendationBanner.classList.remove('collapsed');
         if (withinBudgetBanner) withinBudgetBanner.classList.remove('collapsed');
 
-        render();
+        const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const remaining = budget - totalAmount;
 
-        const isOverVisibleNow = recommendationBanner ? !recommendationBanner.classList.contains('hidden') : false;
-        const isWithinVisibleNow = withinBudgetBanner ? !withinBudgetBanner.classList.contains('hidden') : false;
-
-        if (isOverVisibleNow) {
-          recommendationBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          showToast('💡 예산 초과 품목 추천 카드가 활성화되었습니다.');
-        } else if (isWithinVisibleNow) {
-          withinBudgetBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          showToast('🎁 남은 예산 스마트 추천 카드가 활성화되었습니다.');
+        if (totalAmount > budget) {
+          renderRecommendationBanner(totalAmount - budget);
+          if (recommendationBanner && !recommendationBanner.classList.contains('hidden')) {
+            recommendationBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            showToast('💡 예산 초과 조정 추천 카드가 활성화되었습니다.');
+          }
         } else {
-          showToast('💡 스마트 추천은 예산 70% 이상 달성 또는 예산 초과 시 자동 활성화됩니다.');
+          renderWithinBudgetRecommendation(remaining, totalAmount, budget, true);
+          if (withinBudgetBanner && !withinBudgetBanner.classList.contains('hidden')) {
+            withinBudgetBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            showToast('🎁 스마트 품목 추천 카드가 활성화되었습니다.');
+          } else {
+            showToast('💡 추천할 품목 정보가 충분하지 않습니다.');
+          }
         }
       });
     }
