@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>마트 장보기 예산 계산기</title>
+  <title>Mart app 2 - 마트 장보기 예산 계산기</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -27,7 +27,7 @@
         <button type="button" class="btn-budget-setting" id="btn-budget-setting" aria-label="예산 설정">
           ⚙️ 예산 설정
         </button>
-        <span class="app-version-badge" id="app-version-badge">v4.5 (2026-08-06)</span>
+        <span id="app-version-badge" class="version-badge">v1.3.10 (2026-08-06)</span>
         <div class="dashboard-mart-label" id="dashboard-mart-label">이마트 장보기</div>
         <div class="total-display">
           <span class="total-label">현재 총합</span>
@@ -125,7 +125,6 @@
                 inputmode="decimal" 
                 placeholder="예: 10 (=1만), 4.8 (=4.8천)"
                 aria-label="가격 입력"
-                required
               >
               <span class="input-unit">원</span>
             </div>
@@ -160,18 +159,37 @@
 
         <!-- Action buttons inside Cart Section -->
         <div class="cart-actions">
-          <button type="button" id="btn-save-record" class="btn-secondary btn-block large-btn">
-            📝 계산결과 저장 (구매내역.md)
+          <div class="save-row" style="display:flex; gap:8px; align-items:stretch;">
+            <button type="button" id="btn-save-record" class="btn-secondary large-btn" style="flex:1; height:52px; margin:0;">
+              💾 계산결과 저장 (DB 저장)
+            </button>
+            <button type="button" id="btn-view-records" class="btn-secondary large-btn btn-outline" style="min-width:115px; width:auto; padding:0 12px; font-size:0.9rem; height:52px; margin:0;" title="DB 저장 내역 조회">
+              📜 저장내역조회
+            </button>
+          </div>
+          <button type="button" id="btn-download-md-record" class="btn-secondary btn-block large-btn btn-outline">
+            📝 로컬 파일로 저장 (MD 저장)
           </button>
-          <p class="notice-text">
-            ※ "계산결과 저장"은 로컬 서버 실행 환경에서 <code>구매내역.md</code> 파일로 누적 저장됩니다.
-          </p>
 
-          <div class="reset-saved-wrapper">
+          <div class="reset-saved-wrapper export-wrapper">
+            <button type="button" id="btn-view-all-items" class="btn-link">
+              🔍 등록 품목/가격 조회
+            </button>
             <button type="button" id="btn-upload-items" class="btn-link btn-upload-link">
-              📤 품목 마크다운 파일 업로드 (.md)
+              📤 품목 파일 업로드 (.md)
             </button>
             <input type="file" id="file-input-items" accept=".md,.txt,.csv" style="display:none;">
+            
+            <div class="export-dropdown-wrapper">
+              <button type="button" id="btn-export-data" class="btn-link btn-export-link">
+                📥 품목/가격 정보 다운로드
+              </button>
+              <div id="export-menu" class="export-menu hidden">
+                <button type="button" class="export-option" data-format="csv">📊 CSV 다운로드</button>
+                <button type="button" class="export-option" data-format="json">📋 JSON 다운로드</button>
+                <button type="button" class="export-option" data-format="md">📝 Markdown 다운로드</button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -208,6 +226,59 @@
           <button type="button" class="btn-budget-chip" data-amount="60000">6만원</button>
           <button type="button" class="btn-budget-chip" data-amount="100000">10만원</button>
           <button type="button" class="btn-budget-chip" data-amount="300000">30만원</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Price History Modal -->
+  <div class="modal-overlay hidden" id="price-history-modal">
+    <div class="modal-card history-modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" id="history-modal-title">📜 품목 가격 이력</h3>
+        <button type="button" class="btn-modal-close" id="btn-history-modal-close" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="history-summary-box" id="history-summary-box">
+          <!-- Item stats summary will be rendered here -->
+        </div>
+        <div class="history-list-wrapper">
+          <ul class="history-timeline-list" id="history-timeline-list">
+            <!-- Timeline items will be rendered here -->
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Purchase Records History Modal -->
+  <div class="modal-overlay hidden" id="purchase-records-modal">
+    <div class="modal-card history-modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">📜 장바구니 DB 저장 내역</h3>
+        <button type="button" class="btn-modal-close" id="btn-records-modal-close" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="records-modal-content" class="records-modal-content">
+          <!-- Purchase records rendered here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Registered Items Lookup Modal -->
+  <div class="modal-overlay hidden" id="all-items-modal">
+    <div class="modal-card history-modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" id="all-items-modal-title">🔍 등록 품목 & 단가 목록</h3>
+        <button type="button" class="btn-modal-close" id="btn-all-items-modal-close" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:12px;">
+          <input type="text" id="all-items-search-input" class="large-input" placeholder="🔍 품목명 검색..." style="font-size:0.95rem; padding:8px 12px; min-height:40px;">
+        </div>
+        <div id="all-items-list-container" style="max-height:360px; overflow-y:auto;">
+          <!-- Item list rendered here -->
         </div>
       </div>
     </div>

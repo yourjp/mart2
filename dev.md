@@ -1,4 +1,4 @@
-\# 프로젝트 명: Node.js 기반 마트 장보기 예산 계산기 웹 앱
+\# 프로젝트 명: Node.js 기반 마트 장보기 예산 계산기 웹 앱 2
 
 
 
@@ -2659,4 +2659,67 @@ README에는 다음 내용을 포함한다.
 
 - 품목 입력 시 초성/텍스트 자동완성 드롭다운 레이어(`.autocomplete-list`)는 **품목 입력 상자(`#item-name-input`) 전용 컨테이너(`.autocomplete-container`) 바로 아래(`top: 100%`)**에 고정 표출된다.
 - 아래쪽의 가격 입력 상자(`#item-price-input`)와 시각적으로 겹치거나 가리는 현상을 원천 차단하며, 등록 품목 터치 선택 칩 위에 깔끔한 레이어(`z-index: 50`) 형태로 펼쳐진다.
+
+
+## 36. SQLite DB 동기화 및 구매 내역 저장 규칙 (SQLite Sync & Purchase Records)
+
+- 현재 앱의 주 저장소는 `better-sqlite3` 기반 SQLite DB(`data/mart.db`)이며, localStorage는 브라우저 fallback/cache 역할로 사용한다.
+- 서버는 `db.js`를 통해 마트, 품목, 가격 이력, 공유 장바구니, 예산, 구매 저장 내역을 관리한다.
+- 주요 DB API:
+  - `GET /api/db/sync?mart=<mart>`: 예산, 등록 품목, 가격 이력, 장바구니를 한 번에 조회한다.
+  - `POST /api/db/item`: 등록 품목 단가를 추가/수정하고 가격 이력을 남긴다.
+  - `DELETE /api/db/item?mart=<mart>&name=<name>`: 등록 품목을 DB와 마크다운 백업에서 삭제한다.
+  - `POST /api/db/cart`: 현재 장바구니 상태를 저장한다.
+  - `POST /api/db/budget`: 마트별 예산을 저장한다.
+  - `POST /api/save-record`: 계산결과를 DB 구매 내역과 `구매내역.md`에 함께 저장한다.
+  - `GET /api/db/records?mart=<mart>`: 저장된 구매 계산 내역을 조회한다.
+  - `DELETE /api/db/records/:id`: 개별 저장 내역을 삭제한다.
+- `POST /api/save-record`에서 DB 저장 실패가 발생하면 조용히 무시하지 않고 서버 오류로 반환해야 한다.
+- 계산결과 저장 성공 시 저장 내역 모달이 열려 있으면 즉시 목록을 새로고침한다.
+
+
+## 37. 등록 품목 & 단가 목록 모달 규칙 (Registered Items Modal)
+
+- `등록 품목/가격 조회` 버튼은 `#all-items-modal`을 열어 현재 마트의 등록 품목과 단가를 낮은 가격순으로 표시한다.
+- 목록 행 구성:
+  - 좌측: 품목명
+  - 우측: 단가 직접 입력칸(`.all-item-price-input`), 가격 이력 버튼(`.btn-item-history-modal`), 삭제 버튼(`.btn-item-delete-modal`)
+- 단가 수정은 별도 `prompt()` 팝업을 사용하지 않는다.
+- 사용자는 단가 입력칸에서 숫자를 바로 수정하고 `Enter`를 누르거나 입력칸 밖으로 포커스를 이동해 저장한다.
+- 단가 저장 중에는 입력칸을 비활성화하고 `.saving` 상태를 적용한다.
+- 저장 성공 후 입력값은 천 단위 콤마 형식으로 정리한다.
+- 저장 실패 시 이전 단가로 되돌리고 사용자에게 오류 토스트를 표시한다.
+- 단가 변경은 `POST /api/db/item`으로 서버 DB와 동기화하며, `incrementUse`는 `false`로 보낸다.
+
+
+## 38. 가격 이력 모달 표시 규칙 (Price History Modal Layering)
+
+- 등록 품목 목록, 장바구니 품목, 자동완성 항목, 빠른 선택 칩에서 가격 이력 버튼을 누르면 `#price-history-modal`을 연다.
+- 등록 품목 목록에서 가격 이력 버튼은 단가 입력칸의 `blur/change` 저장 이벤트와 충돌하지 않도록 `pointerdown`에서도 즉시 처리한다.
+- 가격 이력 모달을 열 때는 `document.body.appendChild(historyModal)`로 DOM 맨 뒤로 이동시켜 다른 모달보다 나중에 그려지도록 한다.
+- 가격 이력 모달은 `.modal-topmost`를 적용하고 `z-index: 2147483000 !important`로 최상단 레이어를 보장한다.
+- 모달 표시 시 `display: flex`, `visibility: visible`, `opacity: 1`, `pointer-events: auto`를 명시해 숨김 상태가 잔존하지 않도록 한다.
+- 가격 이력 닫기 버튼을 누르면 `.modal-topmost`와 inline style을 제거하고 `.hidden`을 다시 적용한다.
+
+
+## 39. 전광판 버전/날짜 배지 규칙 (Dashboard Version Badge)
+
+- 전광판의 버전/날짜 정보는 `#app-version-badge`로 관리한다.
+- 실제 HTML 클래스는 `.version-badge`이며, CSS는 `.version-badge`와 `.app-version-badge` 모두에 동일 위치 스타일을 적용한다.
+- 배지는 전광판 오른쪽 위(`top: 10px; right: 14px`)에 absolute 배치하며 줄바꿈 없이 표시한다.
+- 앱 코드 또는 기능을 수정할 때 `public/app.js`의 `APP_VERSION`, `public/index.html`의 배지 텍스트, `package.json`, `package-lock.json`, `history.md`를 같은 버전으로 동기화한다.
+
+
+## 40. 최신 기준 v1.3.10 보강 사항 (Current v1.3.10 Notes)
+
+- 현재 기준 버전은 `v1.3.10 (2026-08-06)`이다.
+- `v1.3.1` 이후 주요 보강:
+  - 등록 품목 삭제 API(`DELETE /api/db/item`) 추가.
+  - 장바구니 DB 저장 내역 모달 닫기 동작 복구.
+  - 계산결과 저장 피드백 및 DB 실패 처리 강화.
+  - 등록 품목 가격 이력 버튼 열림 문제 보강.
+  - 등록 품목 단가 입력을 별도 팝업에서 직접 입력 방식으로 전환.
+  - 단가 입력 저장 트리거(`blur/change/Enter`) 안정화.
+  - 가격 이력 모달 최상단 표시 강제.
+  - 전광판 버전/날짜 배지 우측 상단 배치 보정.
 
