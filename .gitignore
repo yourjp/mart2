@@ -1,6 +1,7 @@
 node_modules/
 구매내역.md
 .env
+.env.local
 .vercel
 npm-debug.log*
 yarn-debug.log*

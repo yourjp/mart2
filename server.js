@@ -11,18 +11,18 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Helper: Seed default items from Markdown files into SQLite DB if empty
-function seedItemsFromMarkdownIfEmpty(martId) {
-  const existingItems = dbHelper.getItems(martId);
+// Helper: Seed default items from Markdown files into Postgres if empty
+async function seedItemsFromMarkdownIfEmpty(martId) {
+  const existingItems = await dbHelper.getItems(martId);
   if (existingItems && existingItems.length > 0) return;
 
   const fileName = `품목_${martId}.md`;
   const filePath = path.join(__dirname, fileName);
   const items = parseItemsFromMarkdown(filePath);
   if (items && items.length > 0) {
-    items.forEach(item => {
-      dbHelper.upsertItem(martId, item.name, item.lastPrice, false);
-    });
+    for (const item of items) {
+      await dbHelper.upsertItem(martId, item.name, item.lastPrice, false);
+    }
   }
 }
 
@@ -31,17 +31,17 @@ function seedItemsFromMarkdownIfEmpty(martId) {
 // ----------------------------------------------------
 
 // GET /api/db/sync - Read complete state for a mart (items, cart, budget)
-app.get('/api/db/sync', (req, res) => {
+app.get('/api/db/sync', async (req, res) => {
   try {
     const martName = req.query.mart || 'Emart';
     const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : martName;
     
     // Seed initial data if DB table is empty
-    seedItemsFromMarkdownIfEmpty(canonicalMart);
+    await seedItemsFromMarkdownIfEmpty(canonicalMart);
 
-    const items = dbHelper.getItems(canonicalMart);
-    const cart = dbHelper.getCart(canonicalMart);
-    const budget = dbHelper.getBudget(canonicalMart);
+    const items = await dbHelper.getItems(canonicalMart);
+    const cart = await dbHelper.getCart(canonicalMart);
+    const budget = await dbHelper.getBudget(canonicalMart);
 
     return res.json({
       success: true,
@@ -57,7 +57,7 @@ app.get('/api/db/sync', (req, res) => {
 });
 
 // POST /api/db/item - Add or update an item with price history
-app.post('/api/db/item', (req, res) => {
+app.post('/api/db/item', async (req, res) => {
   try {
     const { martName, name, price, incrementUse } = req.body;
     if (!name) {
@@ -65,10 +65,10 @@ app.post('/api/db/item', (req, res) => {
     }
 
     const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : (martName || 'Emart');
-    const updatedItem = dbHelper.upsertItem(canonicalMart, name, price, !!incrementUse);
+    const updatedItem = await dbHelper.upsertItem(canonicalMart, name, price, !!incrementUse);
 
     // Sync back to markdown file as backup
-    const allItems = dbHelper.getItems(canonicalMart);
+    const allItems = await dbHelper.getItems(canonicalMart);
     writeItemsToMarkdown(path.join(__dirname, `품목_${canonicalMart}.md`), canonicalMart, allItems);
 
     return res.json({ success: true, item: updatedItem });
@@ -79,7 +79,7 @@ app.post('/api/db/item', (req, res) => {
 });
 
 // DELETE /api/db/item - Delete a saved item from DB and Markdown backup
-app.delete('/api/db/item', (req, res) => {
+app.delete('/api/db/item', async (req, res) => {
   try {
     const { mart, martName, name } = req.query;
     const requestedMart = mart || martName || 'Emart';
@@ -89,9 +89,9 @@ app.delete('/api/db/item', (req, res) => {
       return res.status(400).json({ success: false, message: '삭제할 품목명이 필요합니다.' });
     }
 
-    dbHelper.deleteItem(canonicalMart, String(name).trim());
+    await dbHelper.deleteItem(canonicalMart, String(name).trim());
 
-    const allItems = dbHelper.getItems(canonicalMart);
+    const allItems = await dbHelper.getItems(canonicalMart);
     writeItemsToMarkdown(path.join(__dirname, `품목_${canonicalMart}.md`), canonicalMart, allItems);
 
     return res.json({ success: true, message: '품목이 삭제되었습니다.' });
@@ -102,14 +102,14 @@ app.delete('/api/db/item', (req, res) => {
 });
 
 // GET /api/db/history - Fetch price history for a specific item
-app.get('/api/db/history', (req, res) => {
+app.get('/api/db/history', async (req, res) => {
   try {
     const { itemId } = req.query;
     if (!itemId) {
       return res.status(400).json({ success: false, message: 'itemId가 필요합니다.' });
     }
 
-    const data = dbHelper.getItemHistoryById(itemId);
+    const data = await dbHelper.getItemHistoryById(itemId);
     if (!data) {
       return res.status(404).json({ success: false, message: '품목을 찾을 수 없습니다.' });
     }
@@ -122,12 +122,12 @@ app.get('/api/db/history', (req, res) => {
 });
 
 // POST /api/db/cart - Sync cart state
-app.post('/api/db/cart', (req, res) => {
+app.post('/api/db/cart', async (req, res) => {
   try {
     const { martName, cart } = req.body;
     const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : (martName || 'Emart');
 
-    dbHelper.saveCart(canonicalMart, cart || []);
+    await dbHelper.saveCart(canonicalMart, cart || []);
     return res.json({ success: true, message: '장바구니 동기화 성공' });
   } catch (error) {
     console.error('Error saving cart:', error);
@@ -136,12 +136,12 @@ app.post('/api/db/cart', (req, res) => {
 });
 
 // POST /api/db/budget - Sync budget amount
-app.post('/api/db/budget', (req, res) => {
+app.post('/api/db/budget', async (req, res) => {
   try {
     const { martName, amount } = req.body;
     const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : (martName || 'Emart');
 
-    dbHelper.setBudget(canonicalMart, parseInt(amount, 10) || 60000);
+    await dbHelper.setBudget(canonicalMart, parseInt(amount, 10) || 60000);
     return res.json({ success: true, message: '예산 저장 성공' });
   } catch (error) {
     console.error('Error saving budget:', error);
@@ -150,14 +150,14 @@ app.post('/api/db/budget', (req, res) => {
 });
 
 // GET /api/db/export - Export items and price history in CSV / JSON / MD format
-app.get('/api/db/export', (req, res) => {
+app.get('/api/db/export', async (req, res) => {
   try {
     const martName = req.query.mart || 'Emart';
     const format = (req.query.format || 'csv').toLowerCase();
     const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : martName;
 
-    seedItemsFromMarkdownIfEmpty(canonicalMart);
-    const items = dbHelper.getItems(canonicalMart);
+    await seedItemsFromMarkdownIfEmpty(canonicalMart);
+    const items = await dbHelper.getItems(canonicalMart);
 
     if (format === 'json') {
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -197,7 +197,7 @@ app.get('/api/db/export', (req, res) => {
 });
 
 // API endpoint to append grocery calculation result to 구매내역.md
-app.post('/api/save-record', (req, res) => {
+app.post('/api/save-record', async (req, res) => {
   try {
     const { martName, items, totalAmount } = req.body;
 
@@ -229,12 +229,12 @@ app.post('/api/save-record', (req, res) => {
 
     const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : (martName || 'Emart');
 
-    // 1. Save to SQLite DB table
-    dbHelper.savePurchaseRecord(canonicalMart, timeStr, totalAmount, items);
+    // 1. Save to Postgres DB table
+    await dbHelper.savePurchaseRecord(canonicalMart, timeStr, totalAmount, items);
 
     // 2. Save to Local File (구매내역.md)
     const filePath = path.join(__dirname, '구매내역.md');
-    fs.appendFileSync(filePath, markdownText, 'utf8');
+    appendLocalBackup(filePath, markdownText);
 
     return res.json({ success: true, message: '계산결과가 DB 및 로컬 구매내역.md 파일에 성공적으로 저장되었습니다.' });
   } catch (error) {
@@ -247,10 +247,10 @@ app.post('/api/save-record', (req, res) => {
 });
 
 // API endpoint to fetch saved purchase records history from DB
-app.get('/api/db/records', (req, res) => {
+app.get('/api/db/records', async (req, res) => {
   try {
     const { mart } = req.query;
-    const records = dbHelper.getPurchaseRecords(mart);
+    const records = await dbHelper.getPurchaseRecords(mart);
     return res.json({ success: true, records });
   } catch (err) {
     console.error('Error getting purchase records:', err);
@@ -259,10 +259,10 @@ app.get('/api/db/records', (req, res) => {
 });
 
 // API endpoint to delete a specific purchase record from DB
-app.delete('/api/db/records/:id', (req, res) => {
+app.delete('/api/db/records/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    dbHelper.deletePurchaseRecord(id);
+    await dbHelper.deletePurchaseRecord(id);
     return res.json({ success: true, message: '저장 내역이 삭제되었습니다.' });
   } catch (err) {
     console.error('Error deleting purchase record:', err);
@@ -328,6 +328,7 @@ function parseItemsFromMarkdown(filePath) {
 
 // Helper: Write items to Markdown file in comma separated format
 function writeItemsToMarkdown(filePath, martName, items) {
+  if (process.env.VERCEL) return true;
   try {
     let md = `# ${martName} 품목 및 단가 리스트\n\n`;
 
@@ -346,12 +347,18 @@ function writeItemsToMarkdown(filePath, martName, items) {
   }
 }
 
+function appendLocalBackup(filePath, content) {
+  if (process.env.VERCEL) return true;
+  fs.appendFileSync(filePath, content, 'utf8');
+  return true;
+}
+
 // GET /api/items
-app.get('/api/items', (req, res) => {
+app.get('/api/items', async (req, res) => {
   const martName = req.query.mart || 'Emart';
   const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : martName;
-  seedItemsFromMarkdownIfEmpty(canonicalMart);
-  const items = dbHelper.getItems(canonicalMart);
+  await seedItemsFromMarkdownIfEmpty(canonicalMart);
+  const items = await dbHelper.getItems(canonicalMart);
 
   if (items && items.length > 0) {
     return res.json({ success: true, martName: canonicalMart, items });
@@ -361,20 +368,20 @@ app.get('/api/items', (req, res) => {
 });
 
 // POST /api/items
-app.post('/api/items', (req, res) => {
+app.post('/api/items', async (req, res) => {
   const { martName, items } = req.body;
   if (!items || !Array.isArray(items)) {
     return res.status(400).json({ success: false, message: '유효한 품목 리스트가 없습니다.' });
   }
 
   const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : (martName || 'Emart');
-  items.forEach(item => {
-    dbHelper.upsertItem(canonicalMart, item.name, item.lastPrice, false);
-  });
+  for (const item of items) {
+    await dbHelper.upsertItem(canonicalMart, item.name, item.lastPrice, false);
+  }
 
   const fileName = `품목_${canonicalMart}.md`;
   const filePath = path.join(__dirname, fileName);
-  writeItemsToMarkdown(filePath, canonicalMart, dbHelper.getItems(canonicalMart));
+  writeItemsToMarkdown(filePath, canonicalMart, await dbHelper.getItems(canonicalMart));
 
   return res.json({ success: true, message: `${fileName} 및 DB에 품목이 저장되었습니다.` });
 });
@@ -391,3 +398,5 @@ if (require.main === module) {
 }
 
 module.exports = app;
+
+

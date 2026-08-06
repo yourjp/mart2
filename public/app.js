@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.10 (2026-08-06)';
+  const APP_VERSION = 'v1.3.11 (2026-08-07)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -328,7 +328,7 @@
     syncWithBackend(mart);
   }
 
-  // --- Sync State with Backend SQLite DB ---
+  // --- Sync State with Backend Postgres DB ---
   async function syncWithBackend(mart) {
     try {
       const res = await fetch(`/api/db/sync?mart=${encodeURIComponent(mart)}`);
@@ -1347,7 +1347,7 @@
       });
     }
 
-    // Sync State with Backend SQLite DB
+    // Sync State with Backend Postgres DB
     async function syncWithBackend(mart) {
       try {
         const res = await fetch(`/api/db/sync?mart=${encodeURIComponent(mart)}`);
