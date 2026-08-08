@@ -13,8 +13,16 @@ const pool = new Pool({
 
 let initPromise;
 
+function isKoreaSunday(date = new Date()) {
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    timeZone: 'Asia/Seoul'
+  }).format(date) === 'Sun';
+}
+
 function defaultBudgetForMart(martId) {
-  return martId === 'Emart' ? 60000 : 300000;
+  if (martId === 'Costco') return 300000;
+  return isKoreaSunday() ? 50000 : 60000;
 }
 
 function mapItem(row, history = []) {
@@ -57,6 +65,12 @@ async function initDatabase() {
     CREATE TABLE IF NOT EXISTS budgets (
       mart_id TEXT PRIMARY KEY,
       amount INTEGER NOT NULL DEFAULT 60000,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value JSONB NOT NULL,
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
 
@@ -111,7 +125,22 @@ async function initDatabase() {
     `INSERT INTO budgets (mart_id, amount)
      VALUES ($1, $2), ($3, $4)
      ON CONFLICT (mart_id) DO NOTHING`,
-    ['Emart', 60000, 'Costco', 300000]
+    ['Emart', defaultBudgetForMart('Emart'), 'Costco', defaultBudgetForMart('Costco')]
+  );
+
+  await pool.query(
+    `INSERT INTO app_settings (key, value, updated_at)
+     VALUES
+       ($1, $2::jsonb, NOW()),
+       ($3, $4::jsonb, NOW()),
+       ($5, $6::jsonb, NOW())
+     ON CONFLICT (key)
+     DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [
+      'emart_regular_default_budget', JSON.stringify(60000),
+      'emart_sunday_default_budget', JSON.stringify(50000),
+      'costco_default_budget', JSON.stringify(300000)
+    ]
   );
 }
 
@@ -148,6 +177,26 @@ module.exports = {
     return result.rows[0] ? result.rows[0].amount : defaultBudgetForMart(martId);
   },
 
+  async ensureDefaultBudget(martId, defaultAmount = defaultBudgetForMart(martId)) {
+    await ensureDatabase();
+    const result = await pool.query('SELECT amount FROM budgets WHERE mart_id = $1', [martId]);
+    const currentAmount = result.rows[0] ? Number(result.rows[0].amount) : null;
+    const shouldApplySundayDefault = martId === 'Emart' && defaultAmount === 50000 && (currentAmount === null || currentAmount === 60000);
+
+    if (currentAmount === null || shouldApplySundayDefault) {
+      await pool.query(
+        `INSERT INTO budgets (mart_id, amount, updated_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (mart_id)
+         DO UPDATE SET amount = EXCLUDED.amount, updated_at = NOW()`,
+        [martId, defaultAmount]
+      );
+      return defaultAmount;
+    }
+
+    return currentAmount;
+  },
+
   async setBudget(martId, amount) {
     await ensureDatabase();
     await pool.query(
@@ -156,6 +205,23 @@ module.exports = {
        ON CONFLICT (mart_id)
        DO UPDATE SET amount = EXCLUDED.amount, updated_at = NOW()`,
       [martId, amount]
+    );
+  },
+
+  async getSetting(key) {
+    await ensureDatabase();
+    const result = await pool.query('SELECT value FROM app_settings WHERE key = $1', [key]);
+    return result.rows[0] ? result.rows[0].value : null;
+  },
+
+  async setSetting(key, value) {
+    await ensureDatabase();
+    await pool.query(
+      `INSERT INTO app_settings (key, value, updated_at)
+       VALUES ($1, $2::jsonb, NOW())
+       ON CONFLICT (key)
+       DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [key, JSON.stringify(value)]
     );
   },
 
@@ -319,16 +385,48 @@ module.exports = {
     );
   },
 
-  async getPurchaseRecords(martId) {
+  async getPurchaseRecords(martId, month, year) {
     await ensureDatabase();
-    const result = martId
-      ? await pool.query('SELECT * FROM purchase_records WHERE mart_id = $1 ORDER BY created_at DESC, id DESC', [martId])
-      : await pool.query('SELECT * FROM purchase_records ORDER BY created_at DESC, id DESC');
+    const params = [];
+    const where = [];
+
+    const martIds = Array.isArray(martId) ? martId.filter(Boolean) : (martId ? [martId] : []);
+    if (martIds.length > 0) {
+      params.push(martIds);
+      where.push(`mart_id = ANY($${params.length}::text[])`);
+    }
+
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      params.push(`${month}-%`);
+      where.push(`time_str LIKE $${params.length}`);
+    } else if (year && /^\d{4}$/.test(year)) {
+      params.push(`${year}-%`);
+      where.push(`time_str LIKE $${params.length}`);
+    }
+
+    const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
+    const result = await pool.query(
+      `SELECT * FROM purchase_records${whereSql} ORDER BY time_str DESC, created_at DESC, id DESC`,
+      params
+    );
     return result.rows.map(normalizeRecordRow);
   },
 
   async deletePurchaseRecord(id) {
     await ensureDatabase();
     return pool.query('DELETE FROM purchase_records WHERE id = $1', [id]);
+  },
+
+  async normalizePurchaseRecordMarts() {
+    await ensureDatabase();
+    await pool.query(
+      `UPDATE purchase_records
+       SET mart_id = CASE
+         WHEN mart_id = '코스트코' THEN 'Costco'
+         WHEN mart_id = '이마트' THEN 'Emart'
+         ELSE mart_id
+       END
+       WHERE mart_id IN ('코스트코', '이마트')`
+    );
   }
 };

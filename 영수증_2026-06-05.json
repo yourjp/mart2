@@ -1,0 +1,34 @@
+{
+  "fileName": "영수증_2026-06-05.json",
+  "martName": "코스트코",
+  "timeStr": "2026-06-05 21:57:00",
+  "items": [
+    { "name": "토마토 4KG", "price": 11890, "quantity": 1 },
+    { "name": "미니 대추토마토", "price": 10890, "quantity": 1 },
+    { "name": "그린키위 2.4KG", "price": 17090, "quantity": 1 },
+    { "name": "설빙 미숫가루", "price": 13990, "quantity": 2 },
+    { "name": "기린캔 500ML X 8", "price": 14990, "quantity": 1 },
+    { "name": "산토리 카쿠빈", "price": 27690, "quantity": 1 },
+    { "name": "와인 베라짜노 클라시코", "price": 29990, "quantity": 1 },
+    { "name": "와인 소비뇽블랑", "price": 10990, "quantity": 3 },
+    { "name": "소노마 샤르도네", "price": 14790, "quantity": 1 },
+    { "name": "파프리카", "price": 7890, "quantity": 1 },
+    { "name": "조미 아구포 350G", "price": 16290, "quantity": 1 },
+    { "name": "델리마 코파슬리", "price": 5990, "quantity": 1 },
+    { "name": "깐대파 1KG", "price": 5990, "quantity": 1 },
+    { "name": "디종 머스타드", "price": 10990, "quantity": 1 },
+    { "name": "양념소불고기", "price": 38890, "quantity": 1 },
+    { "name": "쇠고기육포 280G", "price": 19990, "quantity": 1 },
+    { "name": "불고기 브리또", "price": 11490, "quantity": 1 },
+    { "name": "새우 31-40 908G", "price": 23490, "quantity": 1 },
+    { "name": "새우 50-70 908G", "price": 22490, "quantity": 1 },
+    { "name": "원당콩국물5팩", "price": 8090, "quantity": 1 },
+    { "name": "고메 중화짬뽕", "price": 15990, "quantity": 1 }
+  ],
+  "totalAmount": 375860,
+  "warnings": [
+    "쿠폰 할인은 대상 품목 금액에서 차감해 최종 단가로 반영함.",
+    "동일 품목인 설빙 미숫가루와 와인 소비뇽블랑은 같은 단가 기준으로 수량 합산함.",
+    "품목명에서 상품코드, CPN, IRC, T, 특수기호, 불필요한 쉼표와 큰따옴표를 제거함."
+  ]
+}

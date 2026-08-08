@@ -7,15 +7,31 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.25 (26-08-08)';
+  const APP_VERSION = 'v1.3.79 (26-08-08)';
+  const MART_BUSINESS_HOURS = {
+    '이마트': '10:00~23:00',
+    '코스트코': '10:00~22:00'
+  };
   const DEFAULT_BUDGET_EMART = 60000;
+  const DEFAULT_BUDGET_EMART_SUNDAY = 50000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
   function getDefaultBudgetForMart(mart) {
     if (mart === '코스트코') {
       return DEFAULT_BUDGET_COSTCO;
     }
+    if (isEmartMart(mart) && isSunday()) {
+      return DEFAULT_BUDGET_EMART_SUNDAY;
+    }
     return DEFAULT_BUDGET_EMART;
+  }
+
+  function isEmartMart(mart) {
+    return mart === 'Emart' || mart === '이마트';
+  }
+
+  function isSunday(date = new Date()) {
+    return date.getDay() === 0;
   }
   
   const DEFAULT_ITEMS_EMART = [
@@ -47,30 +63,35 @@
   ];
 
   const DEFAULT_ITEMS_COSTCO = [
-    { name: '토마토 4KG', lastPrice: 11890 },
-    { name: '미니 대추토마토', lastPrice: 10890 },
+    { name: '기린캔 500ML X 8', lastPrice: 11990 },
+    { name: '소노마 샤르도네', lastPrice: 15990 },
+    { name: '골드키위', lastPrice: 22490 },
     { name: '그린키위 2.4KG', lastPrice: 17090 },
-    { name: '설빙 미숫가루', lastPrice: 13990 },
-    { name: '산토리 카쿠빈', lastPrice: 27690 },
-    { name: '와인 베라짜노 클라시코', lastPrice: 29990 },
-    { name: '와인 소비뇽블랑', lastPrice: 10990 },
-    { name: '와인 소노마 샤르도네', lastPrice: 14790 },
-    { name: '파프리카', lastPrice: 7890 },
-    { name: '조미 아구포 350G', lastPrice: 16290 },
-    { name: '델리마 코파슬리', lastPrice: 5990 },
     { name: '깐대파 1KG', lastPrice: 5990 },
-    { name: '궁 쇠고기육포 280G', lastPrice: 19990 },
+    { name: '델리마 코파슬리', lastPrice: 5990 },
+    { name: '리코타치즈', lastPrice: 12990 },
+    { name: '매일 리코타 200GX3', lastPrice: 12990 },
+    { name: '미니 까망베르', lastPrice: 12990 },
+    { name: '미니 대추토마토', lastPrice: 10890 },
     { name: '불고기 브리또', lastPrice: 11490 },
+    { name: '산토리 카쿠빈', lastPrice: 27690 },
+    { name: '새우 11-15 680G', lastPrice: 22490 },
     { name: '새우 31–40 908G', lastPrice: 23490 },
     { name: '새우 50–70 908G', lastPrice: 22490 },
-    { name: '기린캔 8개', lastPrice: 14990 },
+    { name: '설빙 미숫가루', lastPrice: 13990 },
+    { name: '쇠고기육포 280G', lastPrice: 19990 },
+    { name: '에그샐러드 1.3KG', lastPrice: 11790 },
+    { name: '와인 베라짜노 클라시코', lastPrice: 29990 },
+    { name: '와인 소비뇽블랑', lastPrice: 10990 },
     { name: '유기농 딸기쨈(2)', lastPrice: 14990 },
-    { name: '리코타치즈', lastPrice: 12990 },
-    { name: '미니 까망베르', lastPrice: 12990 },
-    { name: '캠벨포도2kg', lastPrice: 22590 },
-    { name: '새우 11-15 680G', lastPrice: 25490 },
-    { name: '욕실클리너', lastPrice: 13790 },
-    { name: '크림치즈플레인', lastPrice: 12790 }
+    { name: '조미 아구포 350G', lastPrice: 16290 },
+    { name: '참외 3KG', lastPrice: 15990 },
+    { name: '청화 페페론치노', lastPrice: 15900 },
+    { name: '캠벨포도 2KG', lastPrice: 22590 },
+    { name: '크림치즈플레인 X3', lastPrice: 12790 },
+    { name: '토마토 4KG', lastPrice: 11890 },
+    { name: '파프리카', lastPrice: 7890 },
+    { name: '홈스타욕실클리너', lastPrice: 11790 }
   ];
 
   function getDefaultItemsForMart(mart) {
@@ -138,9 +159,12 @@
 
   // --- DOM Elements ---
   const tabEmart = document.getElementById('tab-emart');
+  const tabEmartLabel = document.getElementById('tab-emart-label');
   const tabCostco = document.getElementById('tab-costco');
+  const tabCostcoLabel = document.getElementById('tab-costco-label');
   const dashboardBoard = document.getElementById('dashboard-board');
   const dashboardMartLabel = document.getElementById('dashboard-mart-label');
+  const martHolidayNote = document.getElementById('mart-holiday-note');
   const appVersionBadge = document.getElementById('app-version-badge');
   const totalAmountEl = document.getElementById('total-amount');
   const statusBadgeEl = document.getElementById('status-badge');
@@ -182,6 +206,8 @@
   const btnResetSaved = document.getElementById('btn-reset-saved');
   const btnUploadItems = document.getElementById('btn-upload-items');
   const fileInputItems = document.getElementById('file-input-items');
+  const btnUploadReceipt = document.getElementById('btn-upload-receipt');
+  const fileInputReceipt = document.getElementById('file-input-receipt');
 
   // --- Data Migration & Storage Keys ---
   function getStorageKeys(mart) {
@@ -255,6 +281,8 @@
     const defaultBudget = getDefaultBudgetForMart(mart);
     if (mart === '코스트코' && (savedBudget === null || savedBudget === '60000')) {
       budget = DEFAULT_BUDGET_COSTCO;
+    } else if (isEmartMart(mart) && isSunday() && (savedBudget === null || savedBudget === String(DEFAULT_BUDGET_EMART))) {
+      budget = DEFAULT_BUDGET_EMART_SUNDAY;
     } else {
       budget = savedBudget !== null ? parseInt(savedBudget, 10) : defaultBudget;
     }
@@ -440,8 +468,19 @@
     }
 
     if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
-    dashboardMartLabel.textContent = `${currentMart} 장보기`;
-    if (btnResetSaved) btnResetSaved.textContent = `🔄 ${currentMart} 품목 초기화`;
+    const displayCurrentMartName = getDisplayMartName(currentMart);
+    dashboardMartLabel.textContent = `${displayCurrentMartName} 장보기`;
+    if (tabEmartLabel) tabEmartLabel.textContent = isSecondOrFourthSundayToday() ? '이마트 (하남)' : '이마트';
+    if (tabCostcoLabel) tabCostcoLabel.textContent = isSecondOrFourthSundayToday() ? '코스트코(휴무)' : '코스트코';
+    if (martHolidayNote) {
+      const isEmart = currentMart === 'Emart' || currentMart === '이마트';
+      const isCostco = currentMart === '코스트코' || currentMart === 'Costco';
+      const displayMartName = isCostco ? '코스트코' : '이마트';
+      martHolidayNote.textContent = getMartHolidayText(displayMartName);
+      martHolidayNote.classList.toggle('hidden', !(isEmart || isCostco));
+      martHolidayNote.classList.toggle('is-today', (isEmart || isCostco) && isSecondOrFourthSundayToday());
+    }
+    if (btnResetSaved) btnResetSaved.textContent = `🔄 ${displayCurrentMartName} 품목 초기화`;
     budgetInput.value = budget.toLocaleString();
 
     // Render Quick Selection Chips for active mart
@@ -1286,7 +1325,12 @@
 
           const lines = content.split('\n');
 
-          const itemMap = new Map(savedItems.map(i => [i.name.trim(), i]));
+          const itemMap = new Map();
+          savedItems.forEach(item => {
+            const representativeName = getRepresentativeItemName(item.name);
+            item.name = representativeName;
+            itemMap.set(getDuplicateItemKey(representativeName), item);
+          });
 
           lines.forEach(line => {
             const trimmed = line.trim();
@@ -1314,6 +1358,8 @@
             }
 
             if (name && name !== '-' && name !== '품목명') {
+              name = getRepresentativeItemName(name);
+              const duplicateKey = getDuplicateItemKey(name);
               let price = null;
               if (rawPrice) {
                 const cleanPrice = rawPrice.replace(/[^0-9]/g, '');
@@ -1325,8 +1371,9 @@
                 }
               }
 
-              if (itemMap.has(name)) {
-                const existing = itemMap.get(name);
+              if (itemMap.has(duplicateKey)) {
+                const existing = itemMap.get(duplicateKey);
+                existing.name = name;
                 if (price !== null) {
                   existing.lastPrice = price;
                 }
@@ -1340,11 +1387,12 @@
                   priceHistory: price ? [{ price: price, usedAt: new Date().toISOString() }] : []
                 };
                 savedItems.push(newItem);
-                itemMap.set(name, newItem);
+                itemMap.set(duplicateKey, newItem);
               }
             }
           });
 
+          savedItems = Array.from(itemMap.values());
           saveState();
           render();
           fileInputItems.value = '';
@@ -1364,6 +1412,63 @@
         reader.readAsText(file);
       });
     }
+
+    if (btnUploadReceipt && fileInputReceipt) {
+      btnUploadReceipt.addEventListener('click', () => {
+        fileInputReceipt.click();
+      });
+
+      fileInputReceipt.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const receiptData = JSON.parse(evt.target.result);
+            const martName = String(receiptData.martName || '').trim();
+            const validReceiptMarts = ['코스트코', '이마트'];
+            if (!validReceiptMarts.includes(martName)) {
+              showToast('영수증 JSON의 martName은 코스트코 또는 이마트로 입력해야 합니다.');
+              return;
+            }
+            const items = Array.isArray(receiptData.items)
+              ? receiptData.items.map(item => ({
+                  name: String(item.name || '').trim(),
+                  price: Number(item.price),
+                  quantity: Number(item.quantity) || 1
+                })).filter(item => item.name && Number.isFinite(item.price) && item.quantity > 0)
+              : [];
+
+            if (!items.length) {
+              showToast('영수증 JSON에 저장할 품목이 없습니다.');
+              return;
+            }
+
+            const totalAmount = Number.isFinite(Number(receiptData.totalAmount))
+              ? Number(receiptData.totalAmount)
+              : items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            const timeStr = typeof receiptData.timeStr === 'string' ? receiptData.timeStr : '';
+            const computedTotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            if (computedTotal !== totalAmount) {
+              showToast(`영수증 합계가 맞지 않습니다. 계산 ${computedTotal.toLocaleString()}원 / JSON ${totalAmount.toLocaleString()}원`);
+              return;
+            }
+
+            showReceiptPreview({ fileName: file.name, martName, items, totalAmount, timeStr });
+          } catch (error) {
+            console.error('Receipt upload error:', error);
+            showToast('영수증 JSON을 읽거나 저장하지 못했습니다.');
+          } finally {
+            fileInputReceipt.value = '';
+          }
+        };
+
+        reader.readAsText(file);
+      });
+    }
+
+    initReceiptPreviewModal();
 
     // Sync State with Backend Postgres DB
     async function syncWithBackend(mart) {
@@ -1396,6 +1501,11 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ martName: currentMart, cart })
+          });
+          fetch('/api/db/budget', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ martName: currentMart, amount: budget })
           });
         } catch (err) {}
       }
@@ -1527,42 +1637,7 @@
       });
     }
 
-    // Helper: Client-side Markdown File Download
-    function downloadMarkdownFile(martName, cartItems, totalAmount) {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const seconds = String(now.getSeconds()).padStart(2, '0');
-      const timeStr = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-
-      let mdText = `## ${timeStr} (${martName || '이마트'})\n\n`;
-      mdText += `| 품목 | 단가 | 수량 | 소계 |\n`;
-      mdText += `|---|---|---|---|\n`;
-
-      cartItems.forEach(item => {
-        const unitPriceStr = `${Number(item.price).toLocaleString()}원`;
-        const subtotalStr = `${(Number(item.price) * Number(item.quantity)).toLocaleString()}원`;
-        mdText += `| ${item.name} | ${unitPriceStr} | ${item.quantity} | ${subtotalStr} |\n`;
-      });
-
-      const formattedTotal = `${Number(totalAmount).toLocaleString()}원`;
-      mdText += `\n**총합계: ${formattedTotal}**\n\n---\n\n`;
-
-      const blob = new Blob([mdText], { type: 'text/markdown;charset=utf-8' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `구매내역_${year}${month}${day}_${hours}${minutes}.md`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-
-    const btnDownloadMdRecord = document.getElementById('btn-download-md-record');
-
-    // Save Record to DB ("계산결과 저장 (DB 저장)")
+    // Save cart record to DB ("장바구니 저장")
     if (btnSaveRecord) {
       btnSaveRecord.addEventListener('click', async () => {
       if (cart.length === 0) {
@@ -1602,19 +1677,6 @@
       } finally {
         btnSaveRecord.disabled = false;
       }
-      });
-    }
-
-    // Save/Download Local MD File ("로컬 MD 파일로 저장")
-    if (btnDownloadMdRecord) {
-      btnDownloadMdRecord.addEventListener('click', () => {
-        if (cart.length === 0) {
-          alert('장바구니가 비어 있어 마크다운 파일로 저장할 수 없습니다.');
-          return;
-        }
-        const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        downloadMarkdownFile(currentMart, cart, totalAmount);
-        showToast('📝 로컬 구매내역.md 파일이 다운로드되었습니다!');
       });
     }
 
@@ -1864,96 +1926,127 @@
     };
   }
 
-  async function openPurchaseRecordsModal() {
+  async function openPurchaseRecordsModal(selectedMonth = getCurrentMonthValue(), mode = 'month', rankBy = 'quantity') {
     const recordsModal = document.getElementById('purchase-records-modal');
     const recordsContent = document.getElementById('records-modal-content');
     if (!recordsModal || !recordsContent) return;
 
-    recordsContent.innerHTML = '<div style="padding:16px; text-align:center; color:var(--text-muted);">저장 내역을 불러오는 중...</div>';
+    recordsContent.innerHTML = '<div style="padding:16px; text-align:center; color:var(--text-muted);">구매내역을 불러오는 중...</div>';
     recordsModal.classList.remove('hidden');
 
     try {
-      const res = await fetch(`/api/db/records?mart=${encodeURIComponent(currentMart)}`);
+      const query = new URLSearchParams();
+      const selectedYear = getYearFromMonthValue(selectedMonth);
+      if (mode !== 'all-month') query.set('mart', currentMart);
+      if (mode === 'year' || mode === 'ranking-year') {
+        query.set('year', selectedYear);
+      } else if (selectedMonth) {
+        query.set('month', selectedMonth);
+      }
+      const res = await fetch(`/api/db/records?${query.toString()}`);
       const data = await res.json();
+      const filterTitle = mode === 'year'
+        ? `${selectedYear}년 ${currentMart} 연간 구매`
+        : mode === 'ranking-year' ? `${selectedYear}년 ${currentMart} 연간 랭킹`
+        : mode === 'all-month' ? '전체 마트 구매'
+        : mode === 'ranking-month' ? `${currentMart} 월간 랭킹` : `${currentMart} 구매`;
+      const filterCaption = mode === 'year' || mode === 'ranking-year'
+        ? filterTitle
+        : `${selectedMonth} · ${filterTitle}`;
+      const filterHtml = `
+        <div class="records-month-row">
+          <button type="button" id="btn-records-prev-month" class="btn-records-month-step" title="이전 월" aria-label="이전 월">▼</button>
+          <input type="text" id="records-month-filter" class="records-month-input" value="${escapeHtml(selectedMonth)}" readonly inputmode="none" aria-label="조회 월">
+          <button type="button" id="btn-records-next-month" class="btn-records-month-step" title="다음 월" aria-label="다음 월">▲</button>
+          <button type="button" id="btn-records-month-search" class="btn-records-all">조회</button>
+          <button type="button" id="btn-records-year-search" class="btn-records-all">연간</button>
+          <button type="button" id="btn-records-all-months" class="btn-records-all">전체</button>
+        </div>
+        <div class="records-filter-buttons">
+          <button type="button" id="btn-records-ranking-month" class="btn-records-all btn-records-ranking">🏆 월간 랭킹</button>
+          <button type="button" id="btn-records-ranking-year" class="btn-records-all btn-records-ranking">🏆 연간 랭킹</button>
+          <button type="button" id="btn-records-save-md" class="btn-records-all">💾 저장</button>
+        </div>
+        <div class="records-filter-caption">${escapeHtml(filterCaption)}</div>
+      `;
+
       if (!data || !data.success || !Array.isArray(data.records) || data.records.length === 0) {
-        recordsContent.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted);">저장된 구매 계산 내역이 없습니다.</div>';
+        recordsContent.innerHTML = `${filterHtml}<div style="padding:20px; text-align:center; color:var(--text-muted);">저장된 구매 계산 내역이 없습니다.</div>`;
+        bindRecordsMonthFilter(recordsContent, mode, rankBy, []);
         return;
       }
 
-      // Compute Monthly Total Summaries (Group by YYYY-MM)
-      const monthlyTotals = {};
+      // Compute Monthly Groups and Totals (Group by YYYY-MM)
+      const monthlyGroups = {};
       data.records.forEach(rec => {
         const timeStr = rec.time_str || '';
         const monthKey = timeStr.length >= 7 ? timeStr.substring(0, 7) : '기타';
-        monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + Number(rec.total_amount);
+        if (!monthlyGroups[monthKey]) {
+          monthlyGroups[monthKey] = { total: 0, records: [] };
+        }
+        monthlyGroups[monthKey].total += Number(rec.total_amount);
+        monthlyGroups[monthKey].records.push(rec);
       });
 
-      let html = '<div class="monthly-summary-container" style="display:flex; flex-direction:column; gap:6px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:12px; margin-bottom:14px;">';
-      Object.keys(monthlyTotals).sort().reverse().forEach(mKey => {
+      let html = filterHtml;
+      const recordsTotal = data.records.reduce((sum, rec) => sum + Number(rec.total_amount || 0), 0);
+      const totalLabel = mode === 'year'
+        ? '연간 구매 총합'
+        : mode === 'ranking-year' ? '연간 랭킹 총합'
+        : mode === 'all-month' ? '전체 마트 월 구매 총합'
+        : mode === 'ranking-month' ? '월간 랭킹 총합' : '월 구매 총합';
+      html += `
+        <div class="records-total-box">
+          <span>${totalLabel}</span>
+          <strong>${recordsTotal.toLocaleString()}원</strong>
+        </div>
+      `;
+      if (mode === 'ranking-month' || mode === 'ranking-year') {
+        html += renderItemRanking(data.records, selectedMonth, mode, rankBy);
+        recordsContent.innerHTML = html;
+        bindRecordsMonthFilter(recordsContent, mode, rankBy, data.records);
+        bindRankingControls(recordsContent, selectedMonth, mode);
+        return;
+      }
+      html += '<div class="monthly-record-groups">';
+      Object.keys(monthlyGroups).sort().reverse().forEach((mKey, idx) => {
         const [y, m] = mKey.split('-');
         const monthLabel = m ? `${y}년 ${parseInt(m, 10)}월` : mKey;
+        const group = monthlyGroups[mKey];
+        const isOpen = mode === 'year' ? idx === 0 : selectedMonth === mKey;
         html += `
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-weight:700; color:#1e40af; font-size:1.05rem;">📅 ${monthLabel} 총 지출:</span>
-            <span style="font-weight:800; color:#dc2626; font-size:1.15rem;">${monthlyTotals[mKey].toLocaleString()}원</span>
-          </div>
+          <details class="monthly-record-group" ${isOpen ? 'open' : ''}>
+            <summary class="monthly-record-summary">
+              <span>📅 ${monthLabel}</span>
+              <span>${group.records.length}건 · ${group.total.toLocaleString()}원</span>
+            </summary>
+            <div class="monthly-record-body">
+              ${group.records.map(rec => renderPurchaseRecordCard(rec)).join('')}
+            </div>
+          </details>
         `;
       });
       html += '</div>';
 
-      data.records.forEach(rec => {
-        let itemsArr = [];
-        try {
-          itemsArr = typeof rec.items_json === 'string' ? JSON.parse(rec.items_json) : rec.items_json;
-        } catch (e) {
-          itemsArr = [];
-        }
-
-        let formattedTime = rec.time_str || '';
-        if (formattedTime.length >= 16) {
-          const parts = formattedTime.split(' ');
-          if (parts.length >= 2) {
-            const datePart = parts[0];
-            const timePart = parts[1].substring(0, 5); // YYYY-MM-DD & HH:mm
-            formattedTime = `${datePart} &nbsp;&nbsp;${timePart}`;
-          }
-        }
-
-        html += `
-          <div class="record-card" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:8px; padding:12px; margin-bottom:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:6px; margin-bottom:8px;">
-              <span style="font-weight:700; color:var(--text-main); font-size:0.95rem;">${formattedTime}</span>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span style="font-weight:800; color:#dc2626; font-size:1.05rem;">${Number(rec.total_amount).toLocaleString()}원</span>
-                <button type="button" class="btn-delete-record" data-id="${rec.id}" style="background:none; border:none; color:#94a3b8; font-size:1rem; cursor:pointer; padding:2px 4px;" title="이 내역 삭제" aria-label="삭제">🗑️</button>
-              </div>
-            </div>
-            <ul style="list-style:none; padding:0; margin:0; font-size:0.9rem;">
-              ${itemsArr.map(item => `
-                <li style="display:flex; justify-content:space-between; padding:3px 0;">
-                  <span>${escapeHtml(getDisplayItemName(item.name, item.price))} x ${item.quantity}</span>
-                  <span style="color:#dc2626; font-weight:600;">${(Number(item.price) * Number(item.quantity)).toLocaleString()}원</span>
-                </li>
-              `).join('')}
-            </ul>
-          </div>
-        `;
-      });
-
       recordsContent.innerHTML = html;
+      bindRecordsMonthFilter(recordsContent, mode, rankBy, data.records);
 
       // Event delegation for deleting a record
       recordsContent.onclick = async (e) => {
         const btnDelete = e.target.closest('.btn-delete-record');
         if (btnDelete) {
           const recId = btnDelete.dataset.id;
-          if (confirm('이 저장 내역을 삭제하시겠습니까?')) {
+          const recTime = btnDelete.dataset.time || '선택한 구매내역';
+          const recAmount = Number(btnDelete.dataset.amount || 0);
+          const amountText = recAmount ? `${recAmount.toLocaleString()}원` : '금액 정보 없음';
+          const confirmed = confirm(`${recTime}\n${amountText}\n\n이 구매내역을 삭제하시겠습니까?`);
+          if (confirmed) {
             try {
               const delRes = await fetch(`/api/db/records/${recId}`, { method: 'DELETE' });
               const delData = await delRes.json();
               if (delData && delData.success) {
-                showToast('🗑️ 저장 내역이 삭제되었습니다.');
-                openPurchaseRecordsModal();
+                showToast('🗑️ 구매내역이 삭제되었습니다.');
+                openPurchaseRecordsModal(selectedMonth, mode, rankBy);
               } else {
                 showToast('⚠️ 삭제 중 오류가 발생했습니다.');
               }
@@ -1961,6 +2054,8 @@
               console.error('Delete record error:', err);
               showToast('⚠️ 네트워크 오류로 삭제 실패');
             }
+          } else {
+            showToast('구매내역 삭제를 취소했습니다.');
           }
         }
       };
@@ -1968,6 +2063,372 @@
       console.error('Failed to load purchase records:', err);
       recordsContent.innerHTML = '<div style="padding:16px; text-align:center; color:red;">내역을 불러오는데 실패했습니다.</div>';
     }
+  }
+
+  function renderItemRanking(records, selectedMonth, mode, rankBy) {
+    const itemMap = new Map();
+    records.forEach(rec => {
+      const martId = rec.mart_id;
+      const items = Array.isArray(rec.items_json) ? rec.items_json : [];
+      items.forEach(item => {
+        const displayName = getDisplayItemName(item.name, item.price, martId);
+        const key = String(item.name || '').trim();
+        if (!key) return;
+        if (!itemMap.has(key)) {
+          itemMap.set(key, { name: displayName, quantity: 0, amount: 0 });
+        }
+        const row = itemMap.get(key);
+        row.quantity += Number(item.quantity || 0);
+        row.amount += Number(item.price || 0) * Number(item.quantity || 0);
+      });
+    });
+
+    const sortKey = rankBy === 'amount' ? 'amount' : 'quantity';
+    const ranking = Array.from(itemMap.values())
+      .sort((a, b) => b[sortKey] - a[sortKey] || a.name.localeCompare(b.name, 'ko-KR'))
+      .slice(0, 10);
+
+    return `
+      <div class="ranking-mode-toggle">
+        <button type="button" class="ranking-toggle-btn ${rankBy === 'quantity' ? 'active' : ''}" data-rank-by="quantity">수량순</button>
+        <button type="button" class="ranking-toggle-btn ${rankBy === 'amount' ? 'active' : ''}" data-rank-by="amount">금액순</button>
+      </div>
+      <ol class="ranking-list">
+        ${ranking.map((item, idx) => `
+          <li class="ranking-row">
+            <span class="ranking-rank">${idx + 1}</span>
+            <span class="ranking-name">${escapeHtml(item.name)}</span>
+            <span class="ranking-qty">${item.quantity.toLocaleString()}개</span>
+            <span class="ranking-amount">${item.amount.toLocaleString()}원</span>
+          </li>
+        `).join('') || `<li class="ranking-empty">${escapeHtml(mode === 'ranking-year' ? getYearFromMonthValue(selectedMonth) : selectedMonth)} 품목 랭킹이 없습니다.</li>`}
+      </ol>
+    `;
+  }
+
+  function renderPurchaseRecordCard(rec) {
+    let itemsArr = [];
+    try {
+      itemsArr = typeof rec.items_json === 'string' ? JSON.parse(rec.items_json) : rec.items_json;
+    } catch (e) {
+      itemsArr = [];
+    }
+    itemsArr = Array.isArray(itemsArr)
+      ? [...itemsArr].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ko-KR'))
+      : [];
+
+    let formattedTime = rec.time_str || '';
+    if (formattedTime.length >= 16) {
+      const parts = formattedTime.split(' ');
+      if (parts.length >= 2) {
+        const datePart = parts[0];
+        const timePart = parts[1].substring(0, 5);
+        formattedTime = `${datePart} &nbsp;&nbsp;${timePart}`;
+      }
+    }
+
+    return `
+      <div class="record-card" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:8px; padding:12px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:6px; margin-bottom:8px;">
+          <span style="font-weight:700; color:var(--text-main); font-size:0.95rem;">${formattedTime}</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="record-mart-badge">${escapeHtml(getDisplayMartName(rec.mart_id))}</span>
+            <span style="font-weight:800; color:#dc2626; font-size:1.05rem;">${Number(rec.total_amount).toLocaleString()}원</span>
+            <button type="button" class="btn-delete-record" data-id="${rec.id}" data-time="${escapeHtml(rec.time_str || '')}" data-amount="${Number(rec.total_amount || 0)}" style="background:none; border:none; color:#94a3b8; font-size:1rem; cursor:pointer; padding:2px 4px;" title="이 구매내역 삭제" aria-label="삭제">🗑️</button>
+          </div>
+        </div>
+        <ul class="record-item-list">
+          ${itemsArr.map(item => `
+            <li class="record-item-row">
+              <span class="record-item-name">${escapeHtml(getDisplayItemName(item.name, item.price, rec.mart_id))}</span>
+              <span class="record-item-qty">${Number(item.quantity).toLocaleString()}개</span>
+              <span class="record-item-total">${(Number(item.price) * Number(item.quantity)).toLocaleString()}원</span>
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
+  let pendingReceiptRecord = null;
+
+  function initReceiptPreviewModal() {
+    const modal = document.getElementById('receipt-preview-modal');
+    const btnClose = document.getElementById('btn-receipt-preview-close');
+    const btnCancel = document.getElementById('btn-receipt-preview-cancel');
+    const btnSave = document.getElementById('btn-receipt-preview-save');
+    if (!modal) return;
+
+    const closePreview = () => {
+      modal.classList.add('hidden');
+      pendingReceiptRecord = null;
+    };
+
+    if (btnClose) btnClose.onclick = closePreview;
+    if (btnCancel) btnCancel.onclick = closePreview;
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closePreview();
+    });
+
+    if (btnSave) {
+      btnSave.onclick = async () => {
+        if (!pendingReceiptRecord) return;
+        btnSave.disabled = true;
+        try {
+          const { fileName, ...record } = pendingReceiptRecord;
+          const res = await fetch('/api/save-record', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(record)
+          });
+          const data = await res.json();
+          if (!res.ok || !data || !data.success) {
+            showToast(data && data.message ? data.message : '영수증 저장에 실패했습니다.');
+            return;
+          }
+          showToast(`'${fileName}' 영수증을 구매내역에 저장했습니다.`);
+          closePreview();
+        } catch (error) {
+          console.error('Receipt save error:', error);
+          showToast('영수증 저장 중 오류가 발생했습니다.');
+        } finally {
+          btnSave.disabled = false;
+        }
+      };
+    }
+  }
+
+  function showReceiptPreview(record) {
+    const modal = document.getElementById('receipt-preview-modal');
+    const content = document.getElementById('receipt-preview-content');
+    if (!modal || !content) return;
+
+    pendingReceiptRecord = record;
+    const sortedItems = [...record.items].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ko-KR'));
+    content.innerHTML = `
+      <div class="receipt-preview-meta">
+        <span>${escapeHtml(record.martName)}</span>
+        <span>${escapeHtml(record.timeStr || '시간 없음')}</span>
+      </div>
+      <div class="receipt-preview-list">
+        <ul class="record-item-list">
+          ${sortedItems.map(item => `
+            <li class="record-item-row">
+              <span class="record-item-name">${escapeHtml(getDisplayItemName(item.name, item.price, record.martName))}</span>
+              <span class="record-item-qty">${Number(item.quantity).toLocaleString()}개</span>
+              <span class="record-item-total">${(Number(item.price) * Number(item.quantity)).toLocaleString()}원</span>
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+      <div class="receipt-preview-total">
+        <span>저장 총합</span>
+        <strong>${Number(record.totalAmount).toLocaleString()}원</strong>
+      </div>
+    `;
+    modal.classList.remove('hidden');
+  }
+
+  function getDisplayMartName(martId) {
+    if (martId === 'Costco' || martId === '코스트코') return '코스트코';
+    if (martId === 'Emart' || martId === '이마트') return '이마트';
+    return martId || '마트';
+  }
+
+  function bindRecordsMonthFilter(recordsContent, mode = 'month', rankBy = 'quantity', records = []) {
+    const monthInput = recordsContent.querySelector('#records-month-filter');
+    const prevButton = recordsContent.querySelector('#btn-records-prev-month');
+    const nextButton = recordsContent.querySelector('#btn-records-next-month');
+    const searchButton = recordsContent.querySelector('#btn-records-month-search');
+    const rankingMonthButton = recordsContent.querySelector('#btn-records-ranking-month');
+    const rankingYearButton = recordsContent.querySelector('#btn-records-ranking-year');
+    const yearButton = recordsContent.querySelector('#btn-records-year-search');
+    const allButton = recordsContent.querySelector('#btn-records-all-months');
+    const saveButton = recordsContent.querySelector('#btn-records-save-md');
+
+    if (monthInput) {
+      monthInput.onchange = () => {
+        openPurchaseRecordsModal(monthInput.value, mode, rankBy);
+      };
+    }
+
+    if (prevButton && monthInput) {
+      prevButton.onclick = () => {
+        openPurchaseRecordsModal(shiftMonthValue(monthInput.value, -1), mode, rankBy);
+      };
+    }
+
+    if (nextButton && monthInput) {
+      nextButton.onclick = () => {
+        openPurchaseRecordsModal(shiftMonthValue(monthInput.value, 1), mode, rankBy);
+      };
+    }
+
+    if (searchButton && monthInput) {
+      searchButton.onclick = () => {
+        openPurchaseRecordsModal(getCurrentMonthValue(), 'month');
+      };
+    }
+
+    if (rankingMonthButton && monthInput) {
+      rankingMonthButton.onclick = () => {
+        openPurchaseRecordsModal(monthInput.value, 'ranking-month', 'quantity');
+      };
+    }
+
+    if (rankingYearButton && monthInput) {
+      rankingYearButton.onclick = () => {
+        openPurchaseRecordsModal(monthInput.value, 'ranking-year', 'quantity');
+      };
+    }
+
+    if (yearButton && monthInput) {
+      yearButton.onclick = () => {
+        openPurchaseRecordsModal(monthInput.value, 'year');
+      };
+    }
+
+    if (allButton && monthInput) {
+      allButton.onclick = () => {
+        openPurchaseRecordsModal(monthInput.value, 'all-month');
+      };
+    }
+
+    if (saveButton && monthInput) {
+      saveButton.onclick = () => {
+        if (!records.length) {
+          showToast('저장할 구매내역이 없습니다.');
+          return;
+        }
+        downloadPurchaseRecordsMarkdown(records, monthInput.value, mode, rankBy);
+      };
+    }
+  }
+
+  function bindRankingControls(recordsContent, selectedMonth, mode) {
+    recordsContent.querySelectorAll('.ranking-toggle-btn').forEach(btn => {
+      btn.onclick = () => {
+        openPurchaseRecordsModal(selectedMonth, mode, btn.dataset.rankBy || 'quantity');
+      };
+    });
+  }
+
+  function downloadPurchaseRecordsMarkdown(records, selectedMonth, mode, rankBy) {
+    const selectedYear = getYearFromMonthValue(selectedMonth);
+    const title = mode === 'year'
+      ? `${selectedYear}년 ${currentMart} 구매내역`
+      : mode === 'ranking-year' ? `${selectedYear}년 ${currentMart} 품목 랭킹`
+      : mode === 'all-month' ? `${selectedMonth} 전체 마트 구매내역`
+      : mode === 'ranking-month' ? `${selectedMonth} ${currentMart} 품목 랭킹`
+      : `${selectedMonth} ${currentMart} 구매내역`;
+    const total = records.reduce((sum, rec) => sum + Number(rec.total_amount || 0), 0);
+    let md = `# ${title}\n\n`;
+    md += `- 총합: ${total.toLocaleString()}원\n`;
+    md += `- 저장일시: ${new Date().toLocaleString('ko-KR')}\n\n`;
+
+    if (mode === 'ranking-month' || mode === 'ranking-year') {
+      md += `| 순위 | 품목 | 수량 | 금액 |\n|---:|---|---:|---:|\n`;
+      getRankingRows(records, rankBy).forEach((item, idx) => {
+        md += `| ${idx + 1} | ${item.name} | ${item.quantity.toLocaleString()}개 | ${item.amount.toLocaleString()}원 |\n`;
+      });
+    } else {
+      records.forEach(rec => {
+        md += `## ${rec.time_str || ''} (${getDisplayMartName(rec.mart_id)})\n\n`;
+        md += `| 품목 | 개수 | 총합 |\n|---|---:|---:|\n`;
+        const items = Array.isArray(rec.items_json) ? [...rec.items_json] : [];
+        items.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ko-KR'));
+        items.forEach(item => {
+          md += `| ${getDisplayItemName(item.name, item.price, rec.mart_id)} | ${Number(item.quantity).toLocaleString()}개 | ${(Number(item.price) * Number(item.quantity)).toLocaleString()}원 |\n`;
+        });
+        md += `\n**합계: ${Number(rec.total_amount || 0).toLocaleString()}원**\n\n`;
+      });
+    }
+
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${title.replace(/[\\/:*?"<>|]/g, '_')}.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+    showToast('💾 구매내역 Markdown 저장을 시작했습니다.');
+  }
+
+  function getRankingRows(records, rankBy) {
+    const itemMap = new Map();
+    records.forEach(rec => {
+      const items = Array.isArray(rec.items_json) ? rec.items_json : [];
+      items.forEach(item => {
+        const key = String(item.name || '').trim();
+        if (!key) return;
+        if (!itemMap.has(key)) {
+          itemMap.set(key, { name: getDisplayItemName(item.name, item.price, rec.mart_id), quantity: 0, amount: 0 });
+        }
+        const row = itemMap.get(key);
+        row.quantity += Number(item.quantity || 0);
+        row.amount += Number(item.price || 0) * Number(item.quantity || 0);
+      });
+    });
+    const sortKey = rankBy === 'amount' ? 'amount' : 'quantity';
+    return Array.from(itemMap.values())
+      .sort((a, b) => b[sortKey] - a[sortKey] || a.name.localeCompare(b.name, 'ko-KR'))
+      .slice(0, 10);
+  }
+
+  function getYearFromMonthValue(monthValue) {
+    const safeMonth = /^\d{4}-\d{2}$/.test(monthValue) ? monthValue : getCurrentMonthValue();
+    return safeMonth.substring(0, 4);
+  }
+
+  function getCurrentMonthValue() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  }
+
+  function shiftMonthValue(monthValue, delta) {
+    const safeMonth = /^\d{4}-\d{2}$/.test(monthValue) ? monthValue : getCurrentMonthValue();
+    const [year, month] = safeMonth.split('-').map(Number);
+    const shifted = new Date(year, month - 1 + delta, 1);
+    return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  function getSecondAndFourthSundays(date = new Date()) {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    let sundayOrder = 0;
+    const holidayDates = [];
+
+    for (let day = 1; day <= 31; day += 1) {
+      const sunday = new Date(year, month, day);
+      if (sunday.getMonth() !== month) break;
+      if (sunday.getDay() !== 0) continue;
+
+      sundayOrder += 1;
+      if (sundayOrder === 2 || sundayOrder === 4) {
+        holidayDates.push(sunday.getDate());
+      }
+    }
+
+    return {
+      month: month + 1,
+      dates: holidayDates
+    };
+  }
+
+  function isSecondOrFourthSundayToday(date = new Date()) {
+    const dayOfMonth = date.getDate();
+    return getSecondAndFourthSundays(date).dates.includes(dayOfMonth);
+  }
+
+  function getMartHolidayText(martName, date = new Date()) {
+    const { month, dates } = getSecondAndFourthSundays(date);
+    if (dates.length < 2) return '';
+    const businessHours = MART_BUSINESS_HOURS[martName] || '';
+    const hoursText = businessHours ? ` · 영업시간 ${businessHours}` : '';
+    return `${month}월 ${dates[0]}일, ${dates[1]}일 ${martName} 휴무일${hoursText}`;
   }
 
   // Toast Notification Helper
@@ -2003,12 +2464,47 @@
     return lastTwoDigits === 70 || lastTwoDigits === 0;
   }
 
-  function getDisplayItemName(name, price) {
+  function getDisplayItemName(name, price, martName = currentMart) {
     const trimmedName = String(name || '').trim();
-    if (currentMart === '코스트코' && isCostcoStarPrice(price) && !trimmedName.startsWith('🔥')) {
+    if ((martName === '코스트코' || martName === 'Costco') && isCostcoStarPrice(price) && !trimmedName.startsWith('🔥')) {
       return `🔥 ${trimmedName}`;
     }
     return trimmedName;
+  }
+
+  function getRepresentativeItemName(name) {
+    const trimmedName = String(name || '').trim();
+    if (currentMart !== '코스트코') return trimmedName;
+
+    const compactName = trimmedName.replace(/\s+/g, '').toLowerCase();
+    if (compactName.includes('소노마') && (compactName.includes('샤르도네') || compactName.includes('샤도네이'))) {
+      return '소노마 샤르도네';
+    }
+    if (compactName.includes('기린캔') && (compactName.includes('8개') || compactName.includes('500ml'))) {
+      return '기린캔 500ML X 8';
+    }
+    if (compactName.includes('ks새우') || compactName.includes('새우')) {
+      const normalizedShrimpName = compactName.replace(/[–—]/g, '-');
+      if (normalizedShrimpName.includes('11-15') && normalizedShrimpName.includes('680g')) {
+        return '새우 11-15 680G';
+      }
+      if (normalizedShrimpName.includes('31-40') && normalizedShrimpName.includes('908g')) {
+        return '새우 31-40 908G';
+      }
+      if (normalizedShrimpName.includes('50-70') && normalizedShrimpName.includes('908g')) {
+        return '새우 50-70 908G';
+      }
+    }
+
+    return trimmedName;
+  }
+
+  function getDuplicateItemKey(name) {
+    return getRepresentativeItemName(name)
+      .replace(/^와인\s+/, '')
+      .replace(/\s+/g, '')
+      .replace(/[()_\-–]/g, '')
+      .toLowerCase();
   }
 
   // App Initialization

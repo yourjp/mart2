@@ -43,6 +43,32 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+function toCanonicalMartId(martName, fallback = 'Emart') {
+  if (martName === '이마트' || martName === 'Emart') return 'Emart';
+  if (martName === '코스트코' || martName === 'Costco') return 'Costco';
+  return fallback;
+}
+
+function getMartRecordAliases(martName) {
+  const canonicalMart = toCanonicalMartId(martName, martName);
+  if (canonicalMart === 'Costco') return ['Costco', '코스트코'];
+  if (canonicalMart === 'Emart') return ['Emart', '이마트'];
+  return [canonicalMart];
+}
+
+function isKoreaSunday(date = new Date()) {
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    timeZone: 'Asia/Seoul'
+  }).format(date) === 'Sun';
+}
+
+function getDefaultBudgetForMart(martId) {
+  if (martId === 'Costco' || martId === '코스트코') return 300000;
+  if ((martId === 'Emart' || martId === '이마트') && isKoreaSunday()) return 50000;
+  return 60000;
+}
+
 // Helper: Seed default items from Markdown files into Postgres if empty
 async function seedItemsFromMarkdownIfEmpty(martId) {
   const existingItems = await dbHelper.getItems(martId);
@@ -73,7 +99,7 @@ app.get('/api/db/sync', async (req, res) => {
 
     const items = await dbHelper.getItems(canonicalMart);
     const cart = await dbHelper.getCart(canonicalMart);
-    const budget = await dbHelper.getBudget(canonicalMart);
+    const budget = await dbHelper.ensureDefaultBudget(canonicalMart, getDefaultBudgetForMart(canonicalMart));
 
     return res.json({
       success: true,
@@ -96,7 +122,9 @@ app.post('/api/db/item', async (req, res) => {
       return res.status(400).json({ success: false, message: '품목명이 필요합니다.' });
     }
 
-    const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : (martName || 'Emart');
+    const canonicalMart = (martName === '이마트' || martName === 'Emart')
+      ? 'Emart'
+      : (martName === '코스트코' || martName === 'Costco') ? 'Costco' : 'Emart';
     const updatedItem = await dbHelper.upsertItem(canonicalMart, name, price, !!incrementUse);
 
     // Sync back to markdown file as backup
@@ -157,7 +185,9 @@ app.get('/api/db/history', async (req, res) => {
 app.post('/api/db/cart', async (req, res) => {
   try {
     const { martName, cart } = req.body;
-    const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : (martName || 'Emart');
+    const canonicalMart = (martName === '이마트' || martName === 'Emart')
+      ? 'Emart'
+      : (martName === '코스트코' || martName === 'Costco') ? 'Costco' : 'Emart';
 
     await dbHelper.saveCart(canonicalMart, cart || []);
     return res.json({ success: true, message: '장바구니 동기화 성공' });
@@ -173,7 +203,7 @@ app.post('/api/db/budget', async (req, res) => {
     const { martName, amount } = req.body;
     const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : (martName || 'Emart');
 
-    await dbHelper.setBudget(canonicalMart, parseInt(amount, 10) || 60000);
+    await dbHelper.setBudget(canonicalMart, parseInt(amount, 10) || getDefaultBudgetForMart(canonicalMart));
     return res.json({ success: true, message: '예산 저장 성공' });
   } catch (error) {
     console.error('Error saving budget:', error);
@@ -190,36 +220,37 @@ app.get('/api/db/export', async (req, res) => {
 
     await seedItemsFromMarkdownIfEmpty(canonicalMart);
     const items = await dbHelper.getItems(canonicalMart);
+    const exportedItems = items.map(item => ({
+      ...item,
+      priceStats: getPriceHistoryStats(item.priceHistory)
+    }));
 
     if (format === 'json') {
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename=mart_${canonicalMart}_items.json`);
-      return res.send(JSON.stringify({ mart: canonicalMart, exportedAt: new Date().toISOString(), items }, null, 2));
+      setDownloadHeaders(res, 'application/json; charset=utf-8', canonicalMart, 'json');
+      return res.send(JSON.stringify({ mart: canonicalMart, exportedAt: new Date().toISOString(), items: exportedItems }, null, 2));
     } else if (format === 'md') {
       let md = `# ${canonicalMart} 품목 및 가격 이력 리스트\n\n`;
       md += `> 내보낸 날짜: ${new Date().toLocaleString()}\n\n`;
-      md += `| ID | 품목명 | 최근 단가 | 구매 횟수 | 변동 이력 수 |\n`;
-      md += `|---|---|---|---|---|\n`;
-      items.forEach(item => {
+      md += `| ID | 품목명 | 최근 단가 | 구매 횟수 | 변동 이력 수 | 최저 | 최고 | 평균 |\n`;
+      md += `|---|---|---|---|---|---|---|---|\n`;
+      exportedItems.forEach(item => {
         const priceStr = item.lastPrice ? `${item.lastPrice.toLocaleString()}원` : '-';
-        md += `| ${item.id} | ${item.name} | ${priceStr} | ${item.useCount} | ${item.priceHistory ? item.priceHistory.length : 0} |\n`;
+        md += `| ${item.id} | ${item.name} | ${priceStr} | ${item.useCount} | ${item.priceStats.count} | ${formatWon(item.priceStats.min)} | ${formatWon(item.priceStats.max)} | ${formatWon(item.priceStats.avg)} |\n`;
       });
-      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename=mart_${canonicalMart}_items.md`);
+      setDownloadHeaders(res, 'text/markdown; charset=utf-8', canonicalMart, 'md');
       return res.send(md);
     } else {
       // CSV Format
       let csv = '\uFEFF'; // UTF-8 BOM for Excel compatibility
-      csv += 'ID,품목명,최근단가,구매횟수,이력기록수,최근이력\n';
-      items.forEach(item => {
+      csv += 'ID,품목명,최근단가,구매횟수,이력기록수,최저,최고,평균,최근이력\n';
+      exportedItems.forEach(item => {
         const priceStr = item.lastPrice || '';
         const historyText = (item.priceHistory && item.priceHistory.length > 0)
           ? item.priceHistory.map(h => `${h.recorded_at.substring(0, 10)}:${h.price}원(${h.note || ''})`).join(' | ')
           : '';
-        csv += `"${item.id}","${item.name.replace(/"/g, '""')}","${priceStr}","${item.useCount}","${item.priceHistory ? item.priceHistory.length : 0}","${historyText.replace(/"/g, '""')}"\n`;
+        csv += `"${item.id}","${item.name.replace(/"/g, '""')}","${priceStr}","${item.useCount}","${item.priceStats.count}","${item.priceStats.min || ''}","${item.priceStats.max || ''}","${item.priceStats.avg || ''}","${historyText.replace(/"/g, '""')}"\n`;
       });
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename=mart_${canonicalMart}_items.csv`);
+      setDownloadHeaders(res, 'text/csv; charset=utf-8', canonicalMart, 'csv');
       return res.send(csv);
     }
   } catch (error) {
@@ -231,7 +262,7 @@ app.get('/api/db/export', async (req, res) => {
 // API endpoint to append grocery calculation result to 구매내역.md
 app.post('/api/save-record', async (req, res) => {
   try {
-    const { martName, items, totalAmount } = req.body;
+    const { martName, items, totalAmount, timeStr: requestedTimeStr } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ success: false, message: '장바구니가 비어 있습니다.' });
@@ -244,7 +275,10 @@ app.post('/api/save-record', async (req, res) => {
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
-    const timeStr = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    const generatedTimeStr = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    const timeStr = typeof requestedTimeStr === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(requestedTimeStr)
+      ? requestedTimeStr
+      : generatedTimeStr;
 
     let markdownText = `## ${timeStr} (${martName || '이마트'})\n\n`;
     markdownText += `| 품목 | 단가 | 수량 | 소계 |\n`;
@@ -259,7 +293,9 @@ app.post('/api/save-record', async (req, res) => {
     const formattedTotal = `${Number(totalAmount).toLocaleString()}원`;
     markdownText += `\n**총합계: ${formattedTotal}**\n\n---\n\n`;
 
-    const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : (martName || 'Emart');
+    const canonicalMart = (martName === '이마트' || martName === 'Emart')
+      ? 'Emart'
+      : (martName === '코스트코' || martName === 'Costco') ? 'Costco' : 'Emart';
 
     // 1. Save to Postgres DB table
     await dbHelper.savePurchaseRecord(canonicalMart, timeStr, totalAmount, items);
@@ -281,8 +317,10 @@ app.post('/api/save-record', async (req, res) => {
 // API endpoint to fetch saved purchase records history from DB
 app.get('/api/db/records', async (req, res) => {
   try {
-    const { mart } = req.query;
-    const records = await dbHelper.getPurchaseRecords(mart);
+    const { mart, month, year } = req.query;
+    await dbHelper.normalizePurchaseRecordMarts();
+    const martFilter = mart ? getMartRecordAliases(mart) : null;
+    const records = await dbHelper.getPurchaseRecords(martFilter, month, year);
     return res.json({ success: true, records });
   } catch (err) {
     console.error('Error getting purchase records:', err);
@@ -385,6 +423,74 @@ function appendLocalBackup(filePath, content) {
   return true;
 }
 
+function getDownloadMartSlug(martName) {
+  if (martName === '코스트코' || martName === 'Costco') return 'costco';
+  if (martName === '이마트' || martName === 'Emart') return 'emart';
+  return String(martName || 'mart').replace(/[^A-Za-z0-9_-]/g, '_') || 'mart';
+}
+
+function setDownloadHeaders(res, contentType, martName, extension) {
+  const safeFileName = `mart_${getDownloadMartSlug(martName)}_items.${extension}`;
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"`);
+}
+
+function getPriceHistoryStats(priceHistory) {
+  const prices = Array.isArray(priceHistory)
+    ? priceHistory.map(history => Number(history.price)).filter(price => Number.isFinite(price) && price > 0)
+    : [];
+  if (prices.length === 0) {
+    return { count: 0, min: null, max: null, avg: null };
+  }
+
+  const sum = prices.reduce((total, price) => total + price, 0);
+  return {
+    count: prices.length,
+    min: Math.min(...prices),
+    max: Math.max(...prices),
+    avg: Math.round(sum / prices.length)
+  };
+}
+
+function formatWon(value) {
+  return value ? `${Number(value).toLocaleString()}원` : '-';
+}
+
+function getRepresentativeItemName(martName, name) {
+  const trimmedName = String(name || '').trim();
+  if (martName !== '코스트코' && martName !== 'Costco') return trimmedName;
+
+  const compactName = trimmedName.replace(/\s+/g, '').toLowerCase();
+  if (compactName.includes('소노마') && (compactName.includes('샤르도네') || compactName.includes('샤도네이'))) {
+    return '소노마 샤르도네';
+  }
+  if (compactName.includes('기린캔') && (compactName.includes('8개') || compactName.includes('500ml'))) {
+    return '기린캔 500ML X 8';
+  }
+  if (compactName.includes('ks새우') || compactName.includes('새우')) {
+    const normalizedShrimpName = compactName.replace(/[–—]/g, '-');
+    if (normalizedShrimpName.includes('11-15') && normalizedShrimpName.includes('680g')) {
+      return '새우 11-15 680G';
+    }
+    if (normalizedShrimpName.includes('31-40') && normalizedShrimpName.includes('908g')) {
+      return '새우 31-40 908G';
+    }
+    if (normalizedShrimpName.includes('50-70') && normalizedShrimpName.includes('908g')) {
+      return '새우 50-70 908G';
+    }
+  }
+
+  return trimmedName;
+}
+
+function getDuplicateItemKey(martName, name) {
+  return getRepresentativeItemName(martName, name)
+    .replace(/^와인\s+/, '')
+    .replace(/\s+/g, '')
+    .replace(/[()_\-–]/g, '')
+    .toLowerCase();
+}
+
 // GET /api/items
 app.get('/api/items', async (req, res) => {
   const martName = req.query.mart || 'Emart';
@@ -407,7 +513,18 @@ app.post('/api/items', async (req, res) => {
   }
 
   const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : (martName || 'Emart');
+  const representativeItems = new Map();
   for (const item of items) {
+    const representativeName = getRepresentativeItemName(canonicalMart, item.name);
+    const duplicateKey = getDuplicateItemKey(canonicalMart, representativeName);
+    representativeItems.set(duplicateKey, {
+      ...item,
+      name: representativeName
+    });
+  }
+
+  await dbHelper.pool.query('DELETE FROM items WHERE mart_id = $1', [canonicalMart]);
+  for (const item of representativeItems.values()) {
     await dbHelper.upsertItem(canonicalMart, item.name, item.lastPrice, false);
   }
 
