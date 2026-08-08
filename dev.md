@@ -2571,28 +2571,31 @@ README에는 다음 내용을 포함한다.
 
 ## 24. GitHub 배포 정책 (Deployment Policy)
 
-- 사용자가 **"배포"**라고 명령하거나 요청할 경우에만 **GitHub 원격 저장소(`https://github.com/yourjp/mart.git`)의 `main` 브랜치로 최신 코드 스테이징, 커밋 및 푸시(`git push -u origin main`)를 실행하는 것**을 의미한다.
+- 사용자가 **"배포"**라고 명령하거나 요청할 경우에만 **GitHub 원격 저장소(`https://github.com/yourjp/mart2.git`)의 `main` 브랜치로 최신 코드 스테이징, 커밋 및 푸시(`git push -u origin main`)를 실행하는 것**을 의미한다.
 - 일반적인 수정이나 기능 추가 요청 시에는 로컬에서만 작업 및 검증을 완료하며, **사용자가 명시적으로 배포 요청을 한 경우에만** GitHub 푸시를 수행한다.
+- 배포 전에는 최소 검증으로 `node --check public/app.js`와 `node --check server.js`를 실행한다.
 
 
 ## 25. 버전 및 수정 날짜 표시 규칙 (Version & Modified Date Policy)
 
-- 앱 코드를 수정할 때마다 `version x.x (YYYY-MM-DD)` 형식(예: `v1.1 (2026-08-04)`)으로 버전을 올리고 수정한 날짜를 함께 표기한다.
-- 전광판 우측 상단(`#app-version-badge`), `public/app.js`(`APP_VERSION`), `package.json`에 항상 동기화하여 시각적으로 보여준다.
+- 앱 코드를 수정할 때마다 `version x.x (YY-MM-DD)` 형식(예: `v1.1 (26-08-04)`)으로 버전을 올리고 수정한 날짜를 함께 표기한다.
+- 전광판 우측 상단(`#app-version-badge`), `public/app.js`(`APP_VERSION`), `package.json`, `package-lock.json`, `history.md`에 항상 동기화하여 시각적으로 보여준다.
 
 
 ## 26. 마크다운 파일 기반 품목 관리 기능 (Markdown Item Management)
 
 - 마트별 등록 품목 및 가격 데이터는 `품목_Emart.md` 및 `품목_코스트코.md` 마크다운 파일 형태로 연동/업데이트가 가능하다.
 - 표(Table) 형식을 지양하고 `,`(쉼표) 구분 형식(`품목명, 단가` 예: `맥주(5개묶음), 14,000원`)으로 작성하여 수정 시 웹 앱 로딩 시 최신 품목 및 가격 정보가 자동 연동된다.
+- 단가에 천 단위 쉼표가 포함되므로 파일 파싱 시 줄의 첫 번째 쉼표를 품목명/단가 구분자로 사용하고, 그 뒤 전체를 단가 문자열로 읽는다.
 
 
 ## 27. 전광판 레이아웃 및 스마트 추천 버튼 배치 (Dashboard Board Layout & Smart Recommendation)
 
 - 전광판(`dashboard-board`) 영역배치:
   - **좌측 상단**: `⚙️ 예산 설정` 버튼 (`.btn-budget-setting`)
-  - **우측 상단**: 버전 표시 배지 (`#app-version-badge`, 현재 `v3.6 (2026-08-05)`)
+  - **우측 상단**: 버전 표시 배지 (`#app-version-badge`, 현재 `v1.3.25 (26-08-08)`)
   - **좌측 하단**: `💡 스마트 추천` 버튼 (`.btn-smart-recommendation`)
+  - **우측 하단**: Neon DB 로고 배지 (`.db-badge.neon-postgres-badge`)
 - `현재 총합 0원` 표시는 가로 한 줄(Single Line Flex)로 정렬된다.
 - `💡 스마트 추천` 버튼과 예산 상태 표시 영역(`.status-display`) 간의 시각적 겹침을 방지하기 위해 예산 상태 영역은 우측 오프셋(36px) 정렬을 유지한다.
 - `💡 스마트 추천` 버튼 클릭 시 예산 70% 임계값 조건과 무관하게 즉시 맞춤 품목 추천 카드가 활성화되어 표시된다.
@@ -2623,6 +2626,8 @@ README에는 다음 내용을 포함한다.
 
 - `품목_코스트코.md` 및 코스트코 기본/저장 품목 목록에는 가격이 미입력되거나 비어있는 항목을 완전 제거한다.
 - 단가가 명확히 기재된 유효 24종 품목 데이터만 엄격하게 관리 및 동기화한다.
+- 코스트코 품목은 화면 표시 시 단가 끝 두 자리가 `70` 또는 `00`이면 품목명 앞에 `🔥`를 붙인다.
+- `🔥` 표시는 UI 전용이며 실제 저장 품목명, 검색 키, DB 품목명에는 포함하지 않는다.
 
 
 ## 31. 초성 및 단자음/쌍자음 호환 검색 규칙 (Strict Chosung Boundary & Tense Consonant Search)
@@ -2631,6 +2636,10 @@ README에는 다음 내용을 포함한다.
   - `ㄱ` 입력 시 ➡️ `그린키위` (`ㄱ`), `깐대파` (`ㄲ`), `국산콩물` (`ㄱ`) 검색 성공 / `맥주` (`ㅁ` 시작, 받침이 `ㄱ`) 오매칭 방지
   - `ㄷ` 입력 시 ➡️ `딸기쨈` (`ㄸ`), `대파` (`ㄷ`) 검색 성공
 - 단자음 입력으로도 대응하는 쌍자음을 검색할 수 있도록 문자 정규화(`normalizeTenseConsonants`)를 제공한다 (`ㄱ` ↔ `ㄲ`, `ㄷ` ↔ `ㄸ`, `ㅂ` ↔ `ㅃ`, `ㅅ` ↔ `ㅆ`, `ㅈ` ↔ `ㅉ`).
+- 2자 이상 초성 검색은 단어 경계 이후의 연속 초성도 허용한다.
+  - `방울 토마토`는 `ㅌㅁㅌ`로 검색 성공해야 한다.
+  - 공백 없이 저장된 `방울토마토`도 `ㅌㅁㅌ`로 검색 성공해야 한다.
+  - 한 글자 초성 검색은 기존 경계 매칭 원칙을 유지해 받침/종성 오매칭을 방지한다.
 
 
 ## 32. 단일 매칭 품목 엔터 입력 가격 검토 이동 규칙 (Single Match Enter Auto-Fill & Price Focus)
@@ -2644,9 +2653,10 @@ README에는 다음 내용을 포함한다.
 
 - 코드를 수정하거나 새로운 기능을 추가/업데이트할 때마다 `history.md` 파일에 해당 버전과 변경 내역(신규 기능, 정밀 알고리즘 개선, UI/UX 변경 등)을 누적하여 체계적으로 기록한다.
 - `history.md` 작성 시 기술 표준:
-  1. **버전 및 수정 일자**: `vX.X (YYYY-MM-DD)`
+  1. **버전 및 수정 일자**: `vX.X (YY-MM-DD)`
   2. **변경 항목 상세**: 주요 개선점 및 해결된 이슈 요약
   3. **명세 동기화**: `dev.md` 해당 규칙 섹션과 즉시 상호 연동 기록
+  4. **배포 내역**: 사용자가 배포를 요청해 GitHub `main`에 푸시한 경우 커밋 해시와 배포 요약을 함께 기록
 
 
 ## 34. 장바구니 품목 최신순 상단 추가 규칙 (Cart Items Top Insertion Order)
@@ -2661,9 +2671,10 @@ README에는 다음 내용을 포함한다.
 - 아래쪽의 가격 입력 상자(`#item-price-input`)와 시각적으로 겹치거나 가리는 현상을 원천 차단하며, 등록 품목 터치 선택 칩 위에 깔끔한 레이어(`z-index: 50`) 형태로 펼쳐진다.
 
 
-## 36. SQLite DB 동기화 및 구매 내역 저장 규칙 (SQLite Sync & Purchase Records)
+## 36. Neon Postgres DB 동기화 및 구매 내역 저장 규칙 (Neon Postgres Sync & Purchase Records)
 
-- 현재 앱의 주 저장소는 `better-sqlite3` 기반 SQLite DB(`data/mart.db`)이며, localStorage는 브라우저 fallback/cache 역할로 사용한다.
+- 현재 앱의 주 저장소는 `pg` 기반 Neon Postgres이며, `DATABASE_URL` 환경 변수를 통해 연결한다.
+- localStorage는 브라우저 fallback/cache 역할로 사용한다.
 - 서버는 `db.js`를 통해 마트, 품목, 가격 이력, 공유 장바구니, 예산, 구매 저장 내역을 관리한다.
 - 주요 DB API:
   - `GET /api/db/sync?mart=<mart>`: 예산, 등록 품목, 가격 이력, 장바구니를 한 번에 조회한다.
@@ -2671,10 +2682,11 @@ README에는 다음 내용을 포함한다.
   - `DELETE /api/db/item?mart=<mart>&name=<name>`: 등록 품목을 DB와 마크다운 백업에서 삭제한다.
   - `POST /api/db/cart`: 현재 장바구니 상태를 저장한다.
   - `POST /api/db/budget`: 마트별 예산을 저장한다.
-  - `POST /api/save-record`: 계산결과를 DB 구매 내역과 `구매내역.md`에 함께 저장한다.
+  - `POST /api/save-record`: 계산결과를 DB 구매 내역에 저장한다.
   - `GET /api/db/records?mart=<mart>`: 저장된 구매 계산 내역을 조회한다.
   - `DELETE /api/db/records/:id`: 개별 저장 내역을 삭제한다.
 - `POST /api/save-record`에서 DB 저장 실패가 발생하면 조용히 무시하지 않고 서버 오류로 반환해야 한다.
+- Vercel 서버리스 환경에서는 로컬 Markdown 백업 파일의 영구 저장을 보장하지 않으므로, 구매 내역의 기준 저장소는 Neon Postgres로 본다.
 - 계산결과 저장 성공 시 저장 내역 모달이 열려 있으면 즉시 목록을 새로고침한다.
 
 
@@ -2708,11 +2720,12 @@ README에는 다음 내용을 포함한다.
 - 실제 HTML 클래스는 `.version-badge`이며, CSS는 `.version-badge`와 `.app-version-badge` 모두에 동일 위치 스타일을 적용한다.
 - 배지는 전광판 오른쪽 위(`top: 10px; right: 14px`)에 absolute 배치하며 줄바꿈 없이 표시한다.
 - 앱 코드 또는 기능을 수정할 때 `public/app.js`의 `APP_VERSION`, `public/index.html`의 배지 텍스트, `package.json`, `package-lock.json`, `history.md`를 같은 버전으로 동기화한다.
+- 전광판 오른쪽 아래에는 `.db-badge.neon-postgres-badge`로 Neon DB 로고만 고정 배치한다.
 
 
-## 40. 최신 기준 v1.3.10 보강 사항 (Current v1.3.10 Notes)
+## 40. 최신 기준 v1.3.25 보강 사항 (Current v1.3.25 Notes)
 
-- 현재 기준 버전은 `v1.3.10 (2026-08-06)`이다.
+- 현재 기준 버전은 `v1.3.25 (26-08-08)`이다.
 - `v1.3.1` 이후 주요 보강:
   - 등록 품목 삭제 API(`DELETE /api/db/item`) 추가.
   - 장바구니 DB 저장 내역 모달 닫기 동작 복구.
@@ -2722,4 +2735,18 @@ README에는 다음 내용을 포함한다.
   - 단가 입력 저장 트리거(`blur/change/Enter`) 안정화.
   - 가격 이력 모달 최상단 표시 강제.
   - 전광판 버전/날짜 배지 우측 상단 배치 보정.
+  - Neon Postgres 저장소 전환 및 `NeonDB` 전광판 배지 추가.
+  - 전광판 오른쪽 아래 저장소 표시를 Neon Postgres 로고형 배지로 개선.
+  - 로컬 `npm run dev` 실행 시 `.env.local` 또는 `.env`의 `DATABASE_URL`을 먼저 로드해 Neon Postgres 연결 오류를 방지.
+  - 전광판 Neon Postgres 배지에 실제 Neon 로고 이미지(`public/assets/neon-db-logo.png`)를 적용.
+  - 전광판 저장소 배지에서 `Postgres` 텍스트를 제거하고 Neon DB 로고만 표시.
+  - Neon DB 로고 PNG의 검은 배경을 투명 처리하고 배지 배경/테두리를 제거.
+  - 화면 버전 날짜 표기를 네 자리 연도에서 두 자리 연도(`26-08-08`)로 축약.
+  - 코스트코 품목 단가 목록에 캠벨포도, 설빙 미숫가루, 기린캔, 홈스타욕실클리너 등 14개 요청 단가를 반영.
+  - 천 단위 쉼표가 있는 단가를 잘못 분리하지 않도록 첫 쉼표 뒤 전체를 단가 문자열로 읽는 파싱 규칙을 명시.
+  - 코스트코 단가 끝 두 자리가 `70` 또는 `00`인 품목은 화면 품목명 앞에 `*`를 표시.
+  - 등록 품목 모달에서 단가를 수정해 별표 조건이 바뀌면 빠른 선택칩과 자동완성 표시도 즉시 갱신.
+  - 코스트코 `70원/00원` 표시 아이콘을 `*`에서 `🔥`로 변경.
+  - `방울 토마토`/`방울토마토`를 `ㅌㅁㅌ`로 찾을 수 있도록 2자 이상 연속 초성 검색 보강.
+  - 개발 이력과 절차 문서를 최신 배포 및 DB 기준으로 동기화.
 

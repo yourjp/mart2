@@ -196,17 +196,20 @@ body {
   position: absolute;
   right: 14px;
   bottom: 10px;
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.92);
-  background: rgba(0, 0, 0, 0.3);
-  padding: 3px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  letter-spacing: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  padding: 0;
+  border: 0;
   z-index: 3;
-  white-space: nowrap;
-  backdrop-filter: blur(4px);
+}
+
+.neon-logo-mark {
+  width: 28px;
+  height: 28px;
+  display: block;
+  object-fit: contain;
 }
 
 .dashboard-board.over-budget {

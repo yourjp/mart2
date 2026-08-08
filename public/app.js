@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.13 (2026-08-08)';
+  const APP_VERSION = 'v1.3.25 (26-08-08)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -503,7 +503,7 @@
         li.innerHTML = `
           <div class="cart-item-top">
             <div class="cart-item-title">
-              <span>${escapeHtml(item.name)}</span>
+              <span>${escapeHtml(getDisplayItemName(item.name, item.price))}</span>
               ${badgeHtml}
               <button type="button" class="btn-history-trigger" data-name="${escapeHtml(item.name)}" title="가격 변동 이력 보기">📜 이력</button>
             </div>
@@ -626,7 +626,7 @@
     const bestCandidate = candidates[0];
     const priceDisplay = bestCandidate.lastPrice ? `${bestCandidate.lastPrice.toLocaleString()}원` : '가격 입력';
 
-    withinBudgetText.innerHTML = `남은 예산으로 자주 찾는 <strong>'${escapeHtml(bestCandidate.name)}'</strong> (${priceDisplay})을 담아보세요!`;
+    withinBudgetText.innerHTML = `남은 예산으로 자주 찾는 <strong>'${escapeHtml(getDisplayItemName(bestCandidate.name, bestCandidate.lastPrice))}'</strong> (${priceDisplay})을 담아보세요!`;
     withinBudgetBanner.classList.remove('hidden');
 
     btnAddRecommended.onclick = () => {
@@ -689,7 +689,7 @@
       btn.title = '터치: 선택 / 길게 누르기: 삭제';
       
       const priceText = item.lastPrice ? `<span class="chip-price">${item.lastPrice.toLocaleString()}원</span>` : '';
-      btn.innerHTML = `${escapeHtml(item.name)} ${priceText} <span class="chip-history-btn" title="가격 이력 보기">📜</span>`;
+      btn.innerHTML = `${escapeHtml(getDisplayItemName(item.name, item.lastPrice))} ${priceText} <span class="chip-history-btn" title="가격 이력 보기">📜</span>`;
 
       let pressTimer = null;
       let isLongPress = false;
@@ -839,7 +839,7 @@
         : '';
 
       li.innerHTML = `
-        <span class="item-name-bold">${escapeHtml(item.name)}</span>
+        <span class="item-name-bold">${escapeHtml(getDisplayItemName(item.name, item.lastPrice))}</span>
         <div style="display:flex; align-items:center; gap:6px;">
           ${priceTag}
           <button type="button" class="btn-history-trigger" data-id="${item.id || ''}" data-name="${escapeHtml(item.name)}" title="가격 이력 보기">📜 이력</button>
@@ -1715,7 +1715,7 @@
       const priceValue = (item.lastPrice && item.lastPrice > 0) ? String(item.lastPrice) : '';
       html += `
         <div class="all-item-row" style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; border:1px solid var(--border-color); border-radius:6px; padding:10px 12px;">
-          <span style="font-weight:700; color:var(--text-main); font-size:0.95rem;">${escapeHtml(item.name)}</span>
+          <span style="font-weight:700; color:var(--text-main); font-size:0.95rem;">${escapeHtml(getDisplayItemName(item.name, item.lastPrice))}</span>
           <div style="display:flex; align-items:center; gap:6px;">
             <input type="text" class="all-item-price-input" data-name="${escapeHtml(item.name)}" value="${priceValue ? Number(priceValue).toLocaleString() : ''}" placeholder="가격 입력" inputmode="numeric" aria-label="${escapeHtml(item.name)} 단가 입력" title="단가를 바로 입력하고 Enter 또는 포커스 이동으로 저장">
             <button type="button" class="btn-item-history-modal" data-id="${item.id || ''}" data-name="${escapeHtml(item.name)}" style="background:none; border:none; cursor:pointer; font-size:1.1rem; padding:2px;" title="가격 변동 이력 보기">📜</button>
@@ -1837,6 +1837,10 @@
 
       showToast(`'${name}' 단가가 ${parsed.toLocaleString()}원으로 저장되었습니다.`);
       const searchInput = document.getElementById('all-items-search-input');
+      renderQuickChips();
+      if (itemNameInput && itemNameInput.value.trim()) {
+        updateAutocomplete();
+      }
       renderAllItemsList(searchInput ? searchInput.value.trim() : '');
     }
 
@@ -1927,7 +1931,7 @@
             <ul style="list-style:none; padding:0; margin:0; font-size:0.9rem;">
               ${itemsArr.map(item => `
                 <li style="display:flex; justify-content:space-between; padding:3px 0;">
-                  <span>${escapeHtml(item.name)} x ${item.quantity}</span>
+                  <span>${escapeHtml(getDisplayItemName(item.name, item.price))} x ${item.quantity}</span>
                   <span style="color:#dc2626; font-weight:600;">${(Number(item.price) * Number(item.quantity)).toLocaleString()}원</span>
                 </li>
               `).join('')}
@@ -1990,6 +1994,21 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  function isCostcoStarPrice(price) {
+    const numericPrice = Number(price);
+    if (!Number.isFinite(numericPrice) || numericPrice <= 0) return false;
+    const lastTwoDigits = numericPrice % 100;
+    return lastTwoDigits === 70 || lastTwoDigits === 0;
+  }
+
+  function getDisplayItemName(name, price) {
+    const trimmedName = String(name || '').trim();
+    if (currentMart === '코스트코' && isCostcoStarPrice(price) && !trimmedName.startsWith('🔥')) {
+      return `🔥 ${trimmedName}`;
+    }
+    return trimmedName;
   }
 
   // App Initialization
