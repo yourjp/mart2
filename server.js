@@ -41,7 +41,15 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: false,
+  maxAge: 0,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+}));
 
 function toCanonicalMartId(martName, fallback = 'Emart') {
   if (martName === '이마트' || martName === 'Emart') return 'Emart';
@@ -69,6 +77,15 @@ function getDefaultBudgetForMart(martId) {
   return 60000;
 }
 
+function normalizeKnownItemPrice(martId, name, price) {
+  const normalizedName = String(name || '').trim();
+  const numericPrice = Number(price);
+  if ((martId === 'Costco' || martId === '코스트코') && normalizedName === '청화 페페론치노') {
+    return 15990;
+  }
+  return Number.isFinite(numericPrice) && numericPrice > 0 ? numericPrice : price;
+}
+
 // Helper: Seed default items from Markdown files into Postgres if empty
 async function seedItemsFromMarkdownIfEmpty(martId) {
   const existingItems = await dbHelper.getItems(martId);
@@ -76,10 +93,10 @@ async function seedItemsFromMarkdownIfEmpty(martId) {
 
   const fileName = `품목_${martId}.md`;
   const filePath = path.join(__dirname, fileName);
-  const items = parseItemsFromMarkdown(filePath);
+    const items = parseItemsFromMarkdown(filePath);
   if (items && items.length > 0) {
     for (const item of items) {
-      await dbHelper.upsertItem(martId, item.name, item.lastPrice, false);
+      await dbHelper.upsertItem(martId, item.name, normalizeKnownItemPrice(martId, item.name, item.lastPrice), false);
     }
   }
 }
@@ -92,7 +109,7 @@ async function seedItemsFromMarkdownIfEmpty(martId) {
 app.get('/api/db/sync', async (req, res) => {
   try {
     const martName = req.query.mart || 'Emart';
-    const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : martName;
+    const canonicalMart = toCanonicalMartId(martName);
     
     // Seed initial data if DB table is empty
     await seedItemsFromMarkdownIfEmpty(canonicalMart);
@@ -125,11 +142,12 @@ app.post('/api/db/item', async (req, res) => {
     const canonicalMart = (martName === '이마트' || martName === 'Emart')
       ? 'Emart'
       : (martName === '코스트코' || martName === 'Costco') ? 'Costco' : 'Emart';
-    const updatedItem = await dbHelper.upsertItem(canonicalMart, name, price, !!incrementUse);
+    const normalizedPrice = normalizeKnownItemPrice(canonicalMart, name, price);
+    const updatedItem = await dbHelper.upsertItem(canonicalMart, name, normalizedPrice, !!incrementUse);
 
     // Sync back to markdown file as backup
     const allItems = await dbHelper.getItems(canonicalMart);
-    writeItemsToMarkdown(path.join(__dirname, `품목_${canonicalMart}.md`), canonicalMart, allItems);
+    writeItemsToMarkdownBackups(canonicalMart, allItems);
 
     return res.json({ success: true, item: updatedItem });
   } catch (error) {
@@ -152,7 +170,7 @@ app.delete('/api/db/item', async (req, res) => {
     await dbHelper.deleteItem(canonicalMart, String(name).trim());
 
     const allItems = await dbHelper.getItems(canonicalMart);
-    writeItemsToMarkdown(path.join(__dirname, `품목_${canonicalMart}.md`), canonicalMart, allItems);
+    writeItemsToMarkdownBackups(canonicalMart, allItems);
 
     return res.json({ success: true, message: '품목이 삭제되었습니다.' });
   } catch (error) {
@@ -328,6 +346,17 @@ app.get('/api/db/records', async (req, res) => {
   }
 });
 
+// API endpoint to list item names that currently exist in purchase records
+app.get('/api/db/records/item-names', async (req, res) => {
+  try {
+    const items = await dbHelper.getPurchaseRecordItemNames();
+    return res.json({ success: true, items });
+  } catch (err) {
+    console.error('Error getting purchase record item names:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 function getPreviousMonthValue(monthValue) {
   const safeMonth = /^\d{4}-\d{2}$/.test(monthValue) ? monthValue : new Date().toISOString().slice(0, 7);
   const [year, month] = safeMonth.split('-').map(Number);
@@ -448,6 +477,30 @@ app.delete('/api/db/records/:id', async (req, res) => {
   }
 });
 
+// API endpoint to rename an item inside saved purchase record JSON payloads
+app.post('/api/db/records/rename-item', async (req, res) => {
+  try {
+    const oldName = String(req.body.oldName || '').trim();
+    const newName = String(req.body.newName || '').trim();
+    if (!oldName || !newName) {
+      return res.status(400).json({ success: false, message: '기존 품명과 새 품명을 모두 입력해야 합니다.' });
+    }
+    if (oldName === newName) {
+      return res.status(400).json({ success: false, message: '기존 품명과 새 품명이 같습니다.' });
+    }
+
+    const result = await dbHelper.renamePurchaseRecordItem(oldName, newName);
+    return res.json({
+      success: true,
+      message: `${result.updatedRecords}건의 구매내역에서 ${result.updatedItems}개 품목명을 수정했습니다.`,
+      ...result
+    });
+  } catch (err) {
+    console.error('Error renaming purchase record item:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Helper: Parse items from Markdown file
 function parseItemsFromMarkdown(filePath) {
   if (!fs.existsSync(filePath)) return null;
@@ -523,6 +576,19 @@ function writeItemsToMarkdown(filePath, martName, items) {
     console.error('Error writing markdown items:', e);
     return false;
   }
+}
+
+function writeItemsToMarkdownBackups(canonicalMart, items) {
+  if (process.env.VERCEL) return true;
+  const targets = [
+    { fileName: `품목_${canonicalMart}.md`, label: canonicalMart }
+  ];
+  if (canonicalMart === 'Emart') {
+    targets.push({ fileName: '품목_Emart.md', label: 'Emart' });
+  }
+  return targets.every(target =>
+    writeItemsToMarkdown(path.join(__dirname, target.fileName), target.label, items)
+  );
 }
 
 function appendLocalBackup(filePath, content) {
@@ -602,7 +668,7 @@ function getDuplicateItemKey(martName, name) {
 // GET /api/items
 app.get('/api/items', async (req, res) => {
   const martName = req.query.mart || 'Emart';
-  const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : martName;
+  const canonicalMart = toCanonicalMartId(martName);
   await seedItemsFromMarkdownIfEmpty(canonicalMart);
   const items = await dbHelper.getItems(canonicalMart);
 
@@ -620,7 +686,7 @@ app.post('/api/items', async (req, res) => {
     return res.status(400).json({ success: false, message: '유효한 품목 리스트가 없습니다.' });
   }
 
-  const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : (martName || 'Emart');
+  const canonicalMart = toCanonicalMartId(martName);
   const representativeItems = new Map();
   for (const item of items) {
     const representativeName = getRepresentativeItemName(canonicalMart, item.name);
@@ -633,7 +699,7 @@ app.post('/api/items', async (req, res) => {
 
   await dbHelper.pool.query('DELETE FROM items WHERE mart_id = $1', [canonicalMart]);
   for (const item of representativeItems.values()) {
-    await dbHelper.upsertItem(canonicalMart, item.name, item.lastPrice, false);
+    await dbHelper.upsertItem(canonicalMart, item.name, normalizeKnownItemPrice(canonicalMart, item.name, item.lastPrice), false);
   }
 
   const fileName = `품목_${canonicalMart}.md`;

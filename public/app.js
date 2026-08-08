@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.89 (26-08-08)';
+  const APP_VERSION = 'v1.3.117 (26-08-08)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -17,7 +17,7 @@
   const DEFAULT_BUDGET_COSTCO = 300000;
 
   function getDefaultBudgetForMart(mart) {
-    if (mart === '코스트코') {
+    if (isCostcoMart(mart)) {
       return DEFAULT_BUDGET_COSTCO;
     }
     if (isEmartMart(mart) && isSunday()) {
@@ -28,6 +28,10 @@
 
   function isEmartMart(mart) {
     return mart === 'Emart' || mart === '이마트';
+  }
+
+  function isCostcoMart(mart) {
+    return mart === 'Costco' || mart === '코스트코';
   }
 
   function isSunday(date = new Date()) {
@@ -86,7 +90,7 @@
     { name: '유기농 딸기쨈(2)', lastPrice: 14990 },
     { name: '조미 아구포 350G', lastPrice: 16290 },
     { name: '참외 3KG', lastPrice: 15990 },
-    { name: '청화 페페론치노', lastPrice: 15900 },
+    { name: '청화 페페론치노', lastPrice: 15990 },
     { name: '캠벨포도 2KG', lastPrice: 22590 },
     { name: '크림치즈플레인 X3', lastPrice: 12790 },
     { name: '토마토 4KG', lastPrice: 11890 },
@@ -95,7 +99,7 @@
   ];
 
   function getDefaultItemsForMart(mart) {
-    if (mart === '코스트코') {
+    if (isCostcoMart(mart)) {
       return DEFAULT_ITEMS_COSTCO;
     }
     return DEFAULT_ITEMS_EMART;
@@ -156,6 +160,7 @@
   let autoNameIndex = 1;
   let recommendationDismissed = false;
   let currentMatches = [];
+  let dashboardMonthlyProgressData = null;
 
   // --- DOM Elements ---
   const tabEmart = document.getElementById('tab-emart');
@@ -169,6 +174,7 @@
   const totalAmountEl = document.getElementById('total-amount');
   const statusBadgeEl = document.getElementById('status-badge');
   const statusValueEl = document.getElementById('status-value');
+  const monthlyProgressEl = document.getElementById('monthly-progress');
 
   const btnBudgetSetting = document.getElementById('btn-budget-setting');
   const budgetModal = document.getElementById('budget-modal');
@@ -209,47 +215,9 @@
   const btnUploadReceipt = document.getElementById('btn-upload-receipt');
   const fileInputReceipt = document.getElementById('file-input-receipt');
 
-  // --- Data Migration & Storage Keys ---
-  function getStorageKeys(mart) {
-    const canonicalMart = (mart === '이마트' || mart === 'Emart') ? 'Emart' : mart;
-    return {
-      budgetKey: `martApp_budget_${canonicalMart}`,
-      cartKey: `martApp_cart_${canonicalMart}`,
-      savedItemsKey: `martApp_savedItems_${canonicalMart}`
-    };
-  }
-
+  // --- Legacy browser cache removal ---
   function migrateLegacyData() {
-    try {
-      // Check legacy single-mart keys
-      const legacyBudget = localStorage.getItem('martApp_budget');
-      const legacyCart = localStorage.getItem('martApp_cart');
-      const legacySaved = localStorage.getItem('martApp_savedItems');
-
-      const emartKeys = getStorageKeys('Emart');
-      
-      if ((legacyBudget || legacyCart || legacySaved) && !localStorage.getItem(emartKeys.budgetKey)) {
-        if (legacyBudget) localStorage.setItem(emartKeys.budgetKey, legacyBudget);
-        if (legacyCart) localStorage.setItem(emartKeys.cartKey, legacyCart);
-        if (legacySaved) localStorage.setItem(emartKeys.savedItemsKey, legacySaved);
-
-        localStorage.removeItem('martApp_budget');
-        localStorage.removeItem('martApp_cart');
-        localStorage.removeItem('martApp_savedItems');
-      }
-
-      // Also migrate from '이마트' key if present to 'Emart'
-      const oldBudget = localStorage.getItem('martApp_budget_이마트');
-      const oldCart = localStorage.getItem('martApp_cart_이마트');
-      const oldSaved = localStorage.getItem('martApp_savedItems_이마트');
-
-      if (oldBudget && !localStorage.getItem(emartKeys.budgetKey)) localStorage.setItem(emartKeys.budgetKey, oldBudget);
-      if (oldCart && !localStorage.getItem(emartKeys.cartKey)) localStorage.setItem(emartKeys.cartKey, oldCart);
-      if (oldSaved && !localStorage.getItem(emartKeys.savedItemsKey)) localStorage.setItem(emartKeys.savedItemsKey, oldSaved);
-
-    } catch (e) {
-      console.warn('Migration error:', e);
-    }
+    // DB is the only source of truth. Legacy browser caches are intentionally ignored.
   }
 
   // --- Default Items Seeding ---
@@ -274,93 +242,10 @@
     currentMart = mart;
     document.body.dataset.mart = mart;
 
-    const keys = getStorageKeys(mart);
-
-    // 1. Budget
-    const savedBudget = localStorage.getItem(keys.budgetKey);
-    const defaultBudget = getDefaultBudgetForMart(mart);
-    if (mart === '코스트코' && (savedBudget === null || savedBudget === '60000')) {
-      budget = DEFAULT_BUDGET_COSTCO;
-    } else if (isEmartMart(mart) && isSunday() && (savedBudget === null || savedBudget === String(DEFAULT_BUDGET_EMART))) {
-      budget = DEFAULT_BUDGET_EMART_SUNDAY;
-    } else {
-      budget = savedBudget !== null ? parseInt(savedBudget, 10) : defaultBudget;
-    }
-
-    // 2. Cart
-    try {
-      const savedCart = localStorage.getItem(keys.cartKey);
-      cart = savedCart ? JSON.parse(savedCart) : [];
-      if (!Array.isArray(cart)) cart = [];
-    } catch (e) {
-      cart = [];
-    }
-
-    // 3. Saved Items
-    try {
-      const rawSaved = localStorage.getItem(keys.savedItemsKey);
-      let parsed = rawSaved ? JSON.parse(rawSaved) : null;
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        parsed = createDefaultSavedItems(mart);
-      } else {
-        // Validate & fill default fields
-        parsed = parsed.filter(item => item && typeof item.name === 'string' && item.name.trim().length > 0);
-        parsed = parsed.map(item => ({
-          name: item.name.trim(),
-          lastPrice: typeof item.lastPrice === 'number' ? item.lastPrice : null,
-          useCount: typeof item.useCount === 'number' ? item.useCount : 0,
-          lastUsedAt: item.lastUsedAt || null,
-          isDefault: Boolean(item.isDefault),
-          priceHistory: Array.isArray(item.priceHistory) ? item.priceHistory : []
-        }));
-
-        if (mart === 'Emart') {
-          parsed = parsed.filter(i => i.name !== '행사 우유' && i.name !== '소화 우유');
-        } else if (mart === '코스트코') {
-          const costcoDefaultNames = new Set(DEFAULT_ITEMS_COSTCO.map(i => i.name.trim()));
-          parsed = parsed.filter(i => costcoDefaultNames.has(i.name.trim()));
-        }
-      }
-
-      // Merge & sync missing default items for THIS mart only
-      const defaultList = getDefaultItemsForMart(mart);
-      const itemMap = new Map(parsed.map(i => [i.name.trim(), i]));
-
-      defaultList.forEach(def => {
-        const defName = (typeof def === 'string' ? def : def.name).trim();
-        const defPrice = typeof def === 'object' ? def.lastPrice : null;
-
-        if (itemMap.has(defName)) {
-          const existing = itemMap.get(defName);
-          if ((existing.lastPrice === null || existing.lastPrice === undefined) && defPrice !== null) {
-            existing.lastPrice = defPrice;
-            if (!Array.isArray(existing.priceHistory) || existing.priceHistory.length === 0) {
-              existing.priceHistory = [{ price: defPrice, usedAt: new Date().toISOString() }];
-            }
-          }
-        } else {
-          const newItem = {
-            name: defName,
-            lastPrice: defPrice,
-            useCount: defPrice ? 1 : 0,
-            lastUsedAt: null,
-            isDefault: true,
-            priceHistory: defPrice ? [{ price: defPrice, usedAt: new Date().toISOString() }] : []
-          };
-          parsed.push(newItem);
-          itemMap.set(defName, newItem);
-        }
-      });
-
-      savedItems = parsed;
-    } catch (e) {
-      console.warn('loadState error, resetting saved items for', mart, e);
-      savedItems = createDefaultSavedItems(mart);
-    }
-
-    // Trigger asynchronous DB sync for multi-device data consistency
+    budget = getDefaultBudgetForMart(mart);
+    cart = [];
+    savedItems = [];
     calculateAutoNameIndex();
-    saveState();
     syncWithBackend(mart);
   }
 
@@ -371,44 +256,30 @@
       const data = await res.json();
       if (data && data.success) {
         budget = data.budget;
-        const defaultList = getDefaultItemsForMart(mart);
-        const defaultMap = new Map(defaultList.map(def => {
-          const name = (typeof def === 'string' ? def : def.name).trim();
-          const lastPrice = typeof def === 'object' ? def.lastPrice : null;
-          return [name, { name, lastPrice, useCount: lastPrice ? 1 : 0, isDefault: true, priceHistory: lastPrice ? [{ price: lastPrice, usedAt: new Date().toISOString() }] : [] }];
-        }));
-
-        if (Array.isArray(data.items)) {
-          data.items.forEach(item => {
-            const name = item.name.trim();
-            const existing = defaultMap.get(name);
-            defaultMap.set(name, {
-              id: item.id,
-              name,
-              lastPrice: item.lastPrice !== undefined ? item.lastPrice : (existing ? existing.lastPrice : null),
-              useCount: item.useCount !== undefined ? item.useCount : (existing ? existing.useCount : 0),
-              isDefault: true,
-              priceHistory: Array.isArray(item.priceHistory) ? item.priceHistory : (existing ? existing.priceHistory : [])
-            });
-          });
-        }
-        savedItems = Array.from(defaultMap.values());
+        savedItems = Array.isArray(data.items) ? data.items : [];
         if (Array.isArray(data.cart)) cart = data.cart;
-
-        saveState(false);
         render();
       }
     } catch (err) {
       console.warn('Backend DB sync unavailable:', err);
+      savedItems = [];
+      cart = [];
+      render();
     }
   }
 
-  function saveState() {
-    const keys = getStorageKeys(currentMart);
-    localStorage.setItem('martApp_currentMart', currentMart);
-    localStorage.setItem(keys.budgetKey, budget.toString());
-    localStorage.setItem(keys.cartKey, JSON.stringify(cart));
-    localStorage.setItem(keys.savedItemsKey, JSON.stringify(savedItems));
+  function saveState(pushToDb = true) {
+    if (!pushToDb) return;
+    fetch('/api/db/cart', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ martName: currentMart, cart })
+    }).catch(err => console.warn('DB cart save unavailable:', err));
+    fetch('/api/db/budget', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ martName: currentMart, amount: budget })
+    }).catch(err => console.warn('DB budget save unavailable:', err));
   }
 
   function calculateAutoNameIndex() {
@@ -478,7 +349,7 @@
       const displayMartName = isCostco ? '코스트코' : '이마트';
       martHolidayNote.textContent = getMartHolidayText(displayMartName);
       martHolidayNote.classList.toggle('hidden', !(isEmart || isCostco));
-      martHolidayNote.classList.toggle('is-today', (isEmart || isCostco) && isSecondOrFourthSundayToday());
+      martHolidayNote.classList.remove('is-today');
     }
     if (btnResetSaved) btnResetSaved.textContent = `🔄 ${displayCurrentMartName} 품목 초기화`;
     budgetInput.value = budget.toLocaleString();
@@ -735,13 +606,25 @@
 
       const startPress = () => {
         isLongPress = false;
-        pressTimer = setTimeout(() => {
+        pressTimer = setTimeout(async () => {
           isLongPress = true;
           if (confirm(`[${currentMart}] '${item.name}' 품목을 저장 품목 목록에서 삭제하시겠습니까?`)) {
-            savedItems = savedItems.filter(i => i.name.trim() !== item.name.trim());
-            saveState();
-            render();
-            showToast(`'${item.name}' 품목이 저장 목록에서 삭제되었습니다.`);
+            try {
+              const res = await fetch(`/api/db/item?mart=${encodeURIComponent(currentMart)}&name=${encodeURIComponent(item.name)}`, {
+                method: 'DELETE'
+              });
+              const data = await res.json();
+              if (!res.ok || !data || !data.success) {
+                showToast(data && data.message ? data.message : 'DB 품목 삭제에 실패했습니다.');
+                return;
+              }
+              savedItems = savedItems.filter(i => i.name.trim() !== item.name.trim());
+              render();
+              showToast(`'${item.name}' 품목이 DB에서 삭제되었습니다.`);
+            } catch (err) {
+              console.warn('DB item delete unavailable:', err);
+              showToast('DB 연결 오류로 품목을 삭제하지 못했습니다.');
+            }
           }
         }, 550);
       };
@@ -1065,10 +948,11 @@
   function initEvents() {
     // Store Tab switching
     const handleTabClick = (targetMart) => {
-      const canonicalTarget = (targetMart === '이마트' || targetMart === 'Emart') ? 'Emart' : targetMart;
+      const canonicalTarget = (targetMart === '이마트' || targetMart === 'Emart') ? 'Emart' : 'Costco';
       saveState();
       loadState(canonicalTarget);
       render();
+      renderDashboardMonthlyProgress();
       if (itemNameInput) itemNameInput.value = '';
       if (itemPriceInput) itemPriceInput.value = '';
       if (priceHelper) priceHelper.classList.add('hidden');
@@ -1096,7 +980,7 @@
     if (tabCostco) {
       tabCostco.addEventListener('click', (e) => {
         e.preventDefault();
-        handleTabClick('코스트코');
+        handleTabClick('Costco');
       });
     }
 
@@ -1479,36 +1363,29 @@
           budget = data.budget;
           savedItems = data.items || [];
           cart = data.cart || [];
-          saveState(false); // save locally without trigger loop
           render();
         }
       } catch (err) {
-        console.warn('Backend DB sync unavailable, using localStorage fallback:', err);
+        console.warn('Backend DB sync unavailable:', err);
+        savedItems = [];
+        cart = [];
+        render();
       }
     }
 
     // Save State & Push to DB
     function saveState(pushToDb = true) {
-      const keys = getStorageKeys(currentMart);
-      localStorage.setItem('martApp_currentMart', currentMart);
-      localStorage.setItem(keys.budgetKey, budget.toString());
-      localStorage.setItem(keys.cartKey, JSON.stringify(cart));
-      localStorage.setItem(keys.savedItemsKey, JSON.stringify(savedItems));
-
-      if (pushToDb) {
-        try {
-          fetch('/api/db/cart', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ martName: currentMart, cart })
-          });
-          fetch('/api/db/budget', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ martName: currentMart, amount: budget })
-          });
-        } catch (err) {}
-      }
+      if (!pushToDb) return;
+      fetch('/api/db/cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ martName: currentMart, cart })
+      }).catch(err => console.warn('DB cart save unavailable:', err));
+      fetch('/api/db/budget', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ martName: currentMart, amount: budget })
+      }).catch(err => console.warn('DB budget save unavailable:', err));
     }
 
     // History Modal Elements
@@ -1664,6 +1541,7 @@
         const data = await res.json();
         if (res.ok && data && data.success) {
           showToast(`💾 계산결과가 서버 DB에 성공적으로 저장되었습니다!`);
+          loadDashboardMonthlyProgress();
           const recordsModal = document.getElementById('purchase-records-modal');
           if (recordsModal && !recordsModal.classList.contains('hidden')) {
             openPurchaseRecordsModal();
@@ -1867,7 +1745,7 @@
       const rawValue = input.value.trim();
       if (!name || !rawValue) return;
 
-      const parsed = parseQuickPrice(rawValue) || parseInt(rawValue.replace(/[^0-9]/g, ''), 10);
+      const parsed = parseInt(rawValue.replace(/[^0-9]/g, ''), 10);
       if (!parsed || parsed <= 0) {
         alert('유효한 가격 숫자를 입력해 주세요.');
         return;
@@ -1909,6 +1787,10 @@
           input.value = previousPrice ? previousPrice.toLocaleString() : '';
           showToast(data && data.message ? data.message : '단가 저장 중 오류가 발생했습니다.');
           return;
+        }
+        if (targetItem && data.item) {
+          targetItem.lastPrice = data.item.lastPrice;
+          targetItem.priceHistory = Array.isArray(data.item.priceHistory) ? data.item.priceHistory : targetItem.priceHistory;
         }
       } catch (dbErr) {
         console.warn('DB item update error:', dbErr);
@@ -1999,6 +1881,13 @@
           <button type="button" id="btn-records-ranking-year" class="btn-records-all btn-records-ranking">🏆 연간 랭킹</button>
           <button type="button" id="btn-records-save-md" class="btn-records-all">💾 저장</button>
         </div>
+        <div class="records-rename-tool">
+          <input type="text" id="records-rename-old" class="records-rename-input" list="records-rename-options" placeholder="기존 품명 선택" aria-label="기존 품명">
+          <datalist id="records-rename-options"></datalist>
+          <input type="text" id="records-rename-new" class="records-rename-input" placeholder="새 품명" aria-label="새 품명">
+          <button type="button" id="btn-records-rename-item" class="btn-records-all">정정</button>
+        </div>
+        <div class="records-rename-impact" id="records-rename-impact">정정할 기존 품명을 선택하세요.</div>
         <div class="records-filter-caption">${escapeHtml(filterCaption)}</div>
       `;
 
@@ -2209,7 +2098,7 @@
 
   function formatLedgerMonthLabel(monthValue) {
     const [year, month] = String(monthValue || '').split('-');
-    return year && month ? `${year}년 ${Number(month)}월 가계부` : '가계부';
+    return year && month ? `${year}년 ${Number(month)}월` : '가계부';
   }
 
   function formatWon(value) {
@@ -2344,6 +2233,7 @@
             return;
           }
           showToast(`'${fileName}' 영수증을 구매내역에 저장했습니다.`);
+          loadDashboardMonthlyProgress();
           closePreview();
         } catch (error) {
           console.error('Receipt save error:', error);
@@ -2402,6 +2292,41 @@
     const yearButton = recordsContent.querySelector('#btn-records-year-search');
     const allButton = recordsContent.querySelector('#btn-records-all-months');
     const saveButton = recordsContent.querySelector('#btn-records-save-md');
+    const renameButton = recordsContent.querySelector('#btn-records-rename-item');
+    const renameOldInput = recordsContent.querySelector('#records-rename-old');
+    const renameNewInput = recordsContent.querySelector('#records-rename-new');
+    const renameOptions = recordsContent.querySelector('#records-rename-options');
+    const renameImpact = recordsContent.querySelector('#records-rename-impact');
+    let renameItemMap = new Map();
+
+    if (renameOldInput && renameOptions && renameImpact) {
+      fetch('/api/db/records/item-names')
+        .then(res => res.json())
+        .then(data => {
+          if (!data || !data.success || !Array.isArray(data.items)) {
+            renameImpact.textContent = '구매내역 품목 목록을 불러오지 못했습니다.';
+            return;
+          }
+          renameItemMap = new Map(data.items.map(item => [item.name, item]));
+          renameOptions.innerHTML = data.items.map(item =>
+            `<option value="${escapeHtml(item.name)}">${escapeHtml(item.recordCount)}건 · ${escapeHtml(item.itemCount)}개</option>`
+          ).join('');
+          renameImpact.textContent = data.items.length
+            ? '기존 품명을 선택하면 수정 예정 건수를 표시합니다.'
+            : '구매내역에 정정할 품목이 없습니다.';
+        })
+        .catch(err => {
+          console.warn('Purchase record item names load error:', err);
+          renameImpact.textContent = '구매내역 품목 목록을 불러오지 못했습니다.';
+        });
+
+      renameOldInput.addEventListener('input', () => {
+        const selected = renameItemMap.get(renameOldInput.value.trim());
+        renameImpact.textContent = selected
+          ? `${selected.recordCount}건의 구매내역, ${selected.itemCount}개 품목이 수정 대상입니다.`
+          : '목록에서 기존 품명을 선택하세요.';
+      });
+    }
 
     if (monthInput) {
       monthInput.onchange = () => {
@@ -2458,6 +2383,53 @@
           return;
         }
         downloadPurchaseRecordsMarkdown(records, monthInput.value, mode, rankBy);
+      };
+    }
+
+    if (renameButton && renameOldInput && renameNewInput && monthInput) {
+      renameButton.onclick = async () => {
+        const oldName = renameOldInput.value.trim();
+        const newName = renameNewInput.value.trim();
+        if (!oldName || !newName) {
+          showToast('기존 품명과 새 품명을 모두 입력해 주세요.');
+          return;
+        }
+        if (oldName === newName) {
+          showToast('기존 품명과 새 품명이 같습니다.');
+          return;
+        }
+        const selected = renameItemMap.get(oldName);
+        if (!selected) {
+          showToast('기존 품명은 구매내역 품목 목록에서 선택해 주세요.');
+          return;
+        }
+
+        const confirmed = confirm(`구매내역 전체에서 품목명을 정정합니다.\n\n${oldName} → ${newName}\n\n수정 예정: 구매내역 ${selected.recordCount}건, 품목 ${selected.itemCount}개`);
+        if (!confirmed) {
+          showToast('품목명 정정을 취소했습니다.');
+          return;
+        }
+
+        renameButton.disabled = true;
+        try {
+          const res = await fetch('/api/db/records/rename-item', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ oldName, newName })
+          });
+          const data = await res.json();
+          if (!res.ok || !data || !data.success) {
+            showToast(data && data.message ? data.message : '품목명 정정에 실패했습니다.');
+            return;
+          }
+          showToast(data.message || '구매내역 품목명을 정정했습니다.');
+          openPurchaseRecordsModal(monthInput.value, mode, rankBy);
+        } catch (err) {
+          console.error('Rename purchase record item error:', err);
+          showToast('네트워크 오류로 품목명 정정에 실패했습니다.');
+        } finally {
+          renameButton.disabled = false;
+        }
       };
     }
   }
@@ -2585,7 +2557,73 @@
     if (dates.length < 2) return '';
     const businessHours = MART_BUSINESS_HOURS[martName] || '';
     const hoursText = businessHours ? ` · 영업시간 ${businessHours}` : '';
+    const upcomingHoliday = getUpcomingSecondOrFourthSunday(date);
+    if (upcomingHoliday && upcomingHoliday.daysUntil <= 2) {
+      const relativeText = upcomingHoliday.daysUntil === 0
+        ? (martName === '이마트' ? '하남점 영업' : '오늘 휴무')
+        : upcomingHoliday.daysUntil === 1 ? '내일 휴무' : '모레 휴무';
+      return `${relativeText}${hoursText}`;
+    }
     return `${month}월 ${dates[0]}일, ${dates[1]}일 ${martName} 휴무일${hoursText}`;
+  }
+
+  function getUpcomingSecondOrFourthSunday(date = new Date()) {
+    const today = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    for (let monthOffset = 0; monthOffset <= 1; monthOffset += 1) {
+      const targetMonth = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
+      const { dates } = getSecondAndFourthSundays(targetMonth);
+      for (const day of dates) {
+        const holiday = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), day);
+        const daysUntil = Math.round((holiday - today) / 86400000);
+        if (daysUntil >= 0) {
+          return { date: holiday, daysUntil };
+        }
+      }
+    }
+    return null;
+  }
+
+  async function loadDashboardMonthlyProgress() {
+    if (!monthlyProgressEl) return;
+    try {
+      const res = await fetch(`/api/db/household-summary?month=${encodeURIComponent(getCurrentMonthValue())}`);
+      const data = await res.json();
+      if (!res.ok || !data || !data.success) {
+        throw new Error(data && data.message ? data.message : 'Monthly progress unavailable');
+      }
+      dashboardMonthlyProgressData = data;
+      renderDashboardMonthlyProgress();
+    } catch (err) {
+      console.warn('Monthly budget progress unavailable:', err);
+      monthlyProgressEl.classList.add('hidden');
+      monthlyProgressEl.innerHTML = '';
+    }
+  }
+
+  function renderDashboardMonthlyProgress(data = dashboardMonthlyProgressData) {
+    if (!monthlyProgressEl) return;
+    if (!data || !data.currentMonth || !data.budget) {
+      monthlyProgressEl.classList.add('hidden');
+      monthlyProgressEl.innerHTML = '';
+      return;
+    }
+    const row = (currentMart === '코스트코' || currentMart === 'Costco')
+      ? { key: 'costco', label: '코스트코' }
+      : { key: 'emart', label: '이마트' };
+    const spent = Number(data.currentMonth[row.key] || 0);
+    const budgetAmount = Number(data.budget[row.key] || 0);
+    const usage = budgetAmount > 0 ? Math.round((spent / budgetAmount) * 100) : 0;
+    const cappedUsage = Math.min(Math.max(usage, 0), 100);
+    const status = usage >= 100 ? 'over' : usage >= 80 ? 'warning' : '';
+    monthlyProgressEl.innerHTML = `
+      <div class="monthly-progress-row ${status}">
+        <span class="monthly-progress-vertical" aria-label="${row.label} 월 예산 사용률 ${usage}%">
+          <span style="height:${cappedUsage}%"></span>
+        </span>
+        <span class="monthly-progress-percent">${usage}%</span>
+      </div>
+    `;
+    monthlyProgressEl.classList.remove('hidden');
   }
 
   // Toast Notification Helper
@@ -2622,9 +2660,17 @@
   }
 
   function getDisplayItemName(name, price, martName = currentMart) {
-    const trimmedName = String(name || '').trim();
+    const trimmedName = normalizeDisplayItemName(name);
     if ((martName === '코스트코' || martName === 'Costco') && isCostcoStarPrice(price) && !trimmedName.startsWith('🔥')) {
       return `🔥 ${trimmedName}`;
+    }
+    return trimmedName;
+  }
+
+  function normalizeDisplayItemName(name) {
+    const trimmedName = String(name || '').trim();
+    if (trimmedName === '찬도복숭아') {
+      return '천도복숭아';
     }
     return trimmedName;
   }
@@ -2667,14 +2713,10 @@
   // App Initialization
   function init() {
     migrateLegacyData();
-
-    let savedMart = localStorage.getItem('martApp_currentMart');
-    if (savedMart !== '코스트코') {
-      savedMart = 'Emart';
-    }
-    loadState(savedMart);
+    loadState('Emart');
     initEvents();
     render();
+    loadDashboardMonthlyProgress();
   }
 
   // Run on DOM Ready

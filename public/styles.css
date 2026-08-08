@@ -299,6 +299,68 @@ body {
   background: rgba(255, 255, 255, 0.25);
 }
 
+.monthly-progress {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: fit-content;
+  margin: 0;
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  z-index: 2;
+}
+
+.monthly-progress.hidden {
+  display: none !important;
+}
+
+.monthly-progress-row {
+  display: inline-grid;
+  grid-template-columns: 14px auto;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.monthly-progress-percent {
+  white-space: nowrap;
+}
+
+.monthly-progress-percent {
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.monthly-progress-vertical {
+  position: relative;
+  width: 10px;
+  height: 32px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.monthly-progress-vertical span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: block;
+  width: 100%;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.monthly-progress-row.warning .monthly-progress-vertical span {
+  background: #fde68a;
+}
+
+.monthly-progress-row.over .monthly-progress-vertical span {
+  background: #fecaca;
+}
+
 /* Recommendation Banner */
 .recommendation-banner {
   background: #fff7ed;
@@ -1245,6 +1307,34 @@ body {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.records-rename-tool {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 58px;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.records-rename-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 8px 9px;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.records-rename-impact {
+  margin-bottom: 12px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .records-month-input {

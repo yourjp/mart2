@@ -416,9 +416,86 @@ module.exports = {
     return result.rows.map(normalizeRecordRow);
   },
 
+  async getPurchaseRecordItemNames() {
+    await ensureDatabase();
+    const result = await pool.query('SELECT id, items_json FROM purchase_records ORDER BY time_str DESC, created_at DESC, id DESC');
+    const itemMap = new Map();
+
+    for (const row of result.rows) {
+      const recordId = String(row.id);
+      const items = Array.isArray(row.items_json) ? row.items_json : JSON.parse(row.items_json);
+      const namesInRecord = new Set();
+      for (const item of items) {
+        const name = String((item && item.name) || '').trim();
+        if (!name) continue;
+        if (!itemMap.has(name)) {
+          itemMap.set(name, { name, recordCount: 0, itemCount: 0 });
+        }
+        const entry = itemMap.get(name);
+        entry.itemCount += 1;
+        if (!namesInRecord.has(name)) {
+          entry.recordCount += 1;
+          namesInRecord.add(name);
+        }
+      }
+    }
+
+    return Array.from(itemMap.values())
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko-KR', { numeric: true, sensitivity: 'base' }));
+  },
+
   async deletePurchaseRecord(id) {
     await ensureDatabase();
     return pool.query('DELETE FROM purchase_records WHERE id = $1', [id]);
+  },
+
+  async renamePurchaseRecordItem(oldName, newName) {
+    await ensureDatabase();
+    const fromName = String(oldName || '').trim();
+    const toName = String(newName || '').trim();
+    if (!fromName || !toName || fromName === toName) {
+      return { scannedRecords: 0, updatedRecords: 0, updatedItems: 0 };
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await client.query(
+        'SELECT id, items_json FROM purchase_records WHERE items_json::text LIKE $1 FOR UPDATE',
+        [`%${fromName}%`]
+      );
+
+      let updatedRecords = 0;
+      let updatedItems = 0;
+      for (const row of result.rows) {
+        const items = Array.isArray(row.items_json) ? row.items_json : JSON.parse(row.items_json);
+        let rowUpdates = 0;
+        const nextItems = items.map(item => {
+          if (item && String(item.name || '').trim() === fromName) {
+            rowUpdates += 1;
+            return { ...item, name: toName };
+          }
+          return item;
+        });
+
+        if (rowUpdates > 0) {
+          await client.query(
+            'UPDATE purchase_records SET items_json = $1::jsonb WHERE id = $2',
+            [JSON.stringify(nextItems), row.id]
+          );
+          updatedRecords += 1;
+          updatedItems += rowUpdates;
+        }
+      }
+
+      await client.query('COMMIT');
+      return { scannedRecords: result.rowCount, updatedRecords, updatedItems };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   },
 
   async normalizePurchaseRecordMarts() {
