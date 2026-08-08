@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.122 (26-08-08)';
+  const APP_VERSION = 'v1.3.123 (26-08-08)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -1916,7 +1916,7 @@
             <button type="button" id="btn-records-next-month" class="btn-records-month-step" title="다음 월" aria-label="다음 월">▲</button>
           </div>
           <div class="records-period-actions">
-            <button type="button" id="btn-records-month-search" class="btn-records-all">조회</button>
+            <button type="button" id="btn-records-month-search" class="btn-records-all">금월</button>
             <button type="button" id="btn-records-year-search" class="btn-records-all">연간</button>
             <button type="button" id="btn-records-all-months" class="btn-records-all">전체</button>
           </div>
