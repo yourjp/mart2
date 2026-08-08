@@ -2280,19 +2280,19 @@ README에는 다음 내용을 포함한다.
 
 
 
-\- 예산 (`martApp\_budget\_이마트`, `martApp\_budget\_코스트코`)
+\- 예산 (`budgets.mart_id`: `Emart` 또는 `Costco`)
 
 
 
 
 
-\- 장바구니 (`martApp\_cart\_이마트`, `martApp\_cart\_코스트코`)
+\- 장바구니 (`cart_items.mart_id`: `Emart` 또는 `Costco`)
 
 
 
 
 
-\- 저장 품목 및 가격 이력 (`martApp\_savedItems\_이마트`, `martApp\_savedItems\_코스트코`)
+\- 저장 품목 및 가격 이력 (`items.mart_id`: `Emart` 또는 `Costco`, 가격 이력은 `price_history.item_id` 기준)
 
 
 
@@ -2346,7 +2346,7 @@ README에는 다음 내용을 포함한다.
 
 
 
-&#x20; - 코스트코: 주황/브라운 계열
+&#x20; - 코스트코: 청록/에메랄드 계열
 
 
 
@@ -2564,7 +2564,7 @@ README에는 다음 내용을 포함한다.
 
 ## 25. 버전 및 수정 날짜 표시 규칙 (Version & Modified Date Policy)
 
-- 앱 코드를 수정할 때마다 `vX.X.X (YY-MM-DD)` 형식(예: `v1.3.117 (26-08-08)`)으로 버전을 올리고 수정한 날짜를 함께 표기한다.
+- 앱 코드를 수정할 때마다 `vX.X.X (YY-MM-DD)` 형식(예: `v1.3.118 (26-08-08)`)으로 버전을 올리고 수정한 날짜를 함께 표기한다.
 - 전광판 우측 상단(`#app-version-badge`), `public/app.js`(`APP_VERSION`), `package.json`, `package-lock.json`, `history.md`에 항상 동기화하여 시각적으로 보여준다.
 
 
@@ -2583,7 +2583,7 @@ README에는 다음 내용을 포함한다.
 
 - 전광판(`dashboard-board`) 영역배치:
   - **좌측 상단**: `⚙️ 예산 설정` 버튼 (`.btn-budget-setting`)
-  - **우측 상단**: 버전 표시 배지 (`#app-version-badge`, 현재 `v1.3.117 (26-08-08)`)
+  - **우측 상단**: 버전 표시 배지 (`#app-version-badge`, 현재 `v1.3.118 (26-08-08)`)
   - **좌측 하단**: `💡 스마트 추천` 버튼 (`.btn-smart-recommendation`)
   - **우측 하단**: Neon DB 로고 배지 (`.db-badge.neon-postgres-badge`)
 - `현재 총합 0원` 표시는 가로 한 줄(Single Line Flex)로 정렬된다.
@@ -2669,6 +2669,10 @@ README에는 다음 내용을 포함한다.
 - 현재 앱의 주 저장소는 `pg` 기반 Neon Postgres이며, `DATABASE_URL` 환경 변수를 통해 연결한다.
 - mart2의 기준 저장소는 Neon Postgres DB이며, 예산, 장바구니, 등록/추천 품목, 가격 이력은 localStorage를 사용하지 않는다.
 - 서버는 `db.js`를 통해 마트, 품목, 가격 이력, 공유 장바구니, 예산, 구매 저장 내역을 관리한다.
+- DB의 마트 표준 키는 `Emart`와 `Costco`만 사용한다.
+- API 요청, 영수증 JSON, 화면 탭, 업로드 파일에서 `이마트`/`코스트코` 한글 마트명이 들어와도 서버에서 반드시 `Emart`/`Costco`로 정규화한다.
+- `items`, `cart_items`, `budgets`, `purchase_records`에 `mart_id='코스트코'` 같은 한글 키 데이터를 새로 만들면 안 된다.
+- `GET /api/db/sync?mart=코스트코` 요청도 응답 `martName`은 `Costco`여야 하며, `GET /api/db/sync?mart=Costco`와 같은 DB 데이터를 반환해야 한다.
 - 주요 DB API:
   - `GET /api/db/sync?mart=<mart>`: 예산, 등록 품목, 가격 이력, 장바구니를 한 번에 조회한다.
   - `POST /api/db/item`: 등록 품목 단가를 추가/수정하고 가격 이력을 남긴다.
@@ -2755,6 +2759,7 @@ README에는 다음 내용을 포함한다.
 
 - mart2의 기준 저장소는 Neon Postgres DB다.
 - 예산, 장바구니, 등록 품목, 가격 이력, 구매내역, 가계부 집계는 DB/API 기준으로 관리한다.
+- DB `mart_id`는 `Emart`와 `Costco`만 현행 키로 사용하며, 한글 마트명은 저장 전에 표준 키로 변환한다.
 - 이 문서의 오래된 localStorage 중심 설명은 과거 개발 이력으로만 남아 있으며, 현행 구현/운영 기준으로 사용하지 않는다.
 - 새 기능 설명, README, history, 배포 보고에서는 Neon Postgres DB를 기준 저장소로 설명하고, 브라우저 저장소를 fallback/cache 저장소로 설명하지 않는다.
 - 예산, 장바구니, 등록/추천 품목, 가격 이력은 브라우저 localStorage에 읽거나 쓰지 않는다.
