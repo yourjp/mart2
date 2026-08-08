@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.121 (26-08-08)';
+  const APP_VERSION = 'v1.3.122 (26-08-08)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -49,7 +49,6 @@
     { name: '콩국물', lastPrice: null },
     { name: '적상추', lastPrice: 2780 },
     { name: '백오이 5입', lastPrice: 3480 },
-    { name: '청양 고추', lastPrice: 2980 },
     { name: '서울 우유 2입', lastPrice: 8960 },
     { name: '양지 1++', lastPrice: 15010 },
     { name: '시금치', lastPrice: 2980 },
@@ -58,7 +57,7 @@
     { name: '자두 1kg', lastPrice: 7980 },
     { name: '참타리버섯', lastPrice: 1480 },
     { name: '성주 참외', lastPrice: 11980 },
-    { name: '밀양 청양고추', lastPrice: 2980 },
+    { name: '청양고추', lastPrice: 2980 },
     { name: '캠벨 1.5kg', lastPrice: 13100 },
     { name: '알배기', lastPrice: 2489 },
     { name: '대파', lastPrice: 1930 },
@@ -157,6 +156,7 @@
   let budget = DEFAULT_BUDGET_EMART;
   let cart = [];
   let savedItems = [];
+  let isInitialPageLoad = true;
   let autoNameIndex = 1;
   let recommendationDismissed = false;
   let currentMatches = [];
@@ -273,10 +273,15 @@
     budget = getDefaultBudgetForMart(mart);
     cart = [];
     
-    // Immediate render from LocalStorage cache for instant tab switching
-    const cached = loadLocalItemsCache(mart);
-    if (cached && cached.length > 0) {
-      savedItems = cached;
+    // Page reload/initial load: Bypass local cache, fetch fresh data directly from DB
+    // Tab switching in same session (isInitialPageLoad === false): Use local cache for instant render
+    if (!isInitialPageLoad) {
+      const cached = loadLocalItemsCache(mart);
+      if (cached && cached.length > 0) {
+        savedItems = cached;
+      } else {
+        savedItems = [];
+      }
     } else {
       savedItems = [];
     }
@@ -296,6 +301,7 @@
         savedItems = Array.isArray(data.items) ? data.items : [];
         saveLocalItemsCache(mart, savedItems);
         if (Array.isArray(data.cart)) cart = data.cart;
+        isInitialPageLoad = false;
         render();
       }
     } catch (err) {
@@ -307,6 +313,7 @@
         savedItems = [];
       }
       cart = [];
+      isInitialPageLoad = false;
       render();
     }
   }
@@ -2715,7 +2722,14 @@
 
   function getRepresentativeItemName(name) {
     const trimmedName = String(name || '').trim();
-    if (currentMart !== '코스트코') return trimmedName;
+    if (currentMart === '이마트' || currentMart === 'Emart') {
+      const compactEmartName = trimmedName.replace(/\s+/g, '').toLowerCase();
+      if (compactEmartName === '밀양청양고추' || compactEmartName === '청양고추') {
+        return '청양고추';
+      }
+      return trimmedName;
+    }
+    if (currentMart !== '코스트코' && currentMart !== 'Costco') return trimmedName;
 
     const compactName = trimmedName.replace(/\s+/g, '').toLowerCase();
     if (compactName.includes('소노마') && (compactName.includes('샤르도네') || compactName.includes('샤도네이'))) {

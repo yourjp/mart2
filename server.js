@@ -646,6 +646,13 @@ function formatWon(value) {
 
 function getRepresentativeItemName(martName, name) {
   const trimmedName = String(name || '').trim();
+  if (martName === '이마트' || martName === 'Emart') {
+    const compactEmartName = trimmedName.replace(/\s+/g, '').toLowerCase();
+    if (compactEmartName === '밀양청양고추' || compactEmartName === '청양고추') {
+      return '청양고추';
+    }
+    return trimmedName;
+  }
   if (martName !== '코스트코' && martName !== 'Costco') return trimmedName;
 
   const compactName = trimmedName.replace(/\s+/g, '').toLowerCase();
