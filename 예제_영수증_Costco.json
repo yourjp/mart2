@@ -1,0 +1,31 @@
+{
+  "fileName": "영수증_2026-08-09.json",
+  "martName": "코스트코",
+  "timeStr": "2026-08-09 14:30:00",
+  "items": [
+    {
+      "name": "기린캔 500ML X 8",
+      "price": 11990,
+      "quantity": 1
+    },
+    {
+      "name": "소노마 샤르도네",
+      "price": 15990,
+      "quantity": 2
+    },
+    {
+      "name": "새우 11-15 680G",
+      "price": 22490,
+      "quantity": 1
+    },
+    {
+      "name": "쇠고기육포 280G",
+      "price": 19990,
+      "quantity": 1
+    }
+  ],
+  "totalAmount": 86450,
+  "warnings": [
+    "예제 파일입니다. 실제 업로드 전 martName, timeStr, totalAmount를 확인하세요."
+  ]
+}

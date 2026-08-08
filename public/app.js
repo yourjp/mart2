@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.118 (26-08-08)';
+  const APP_VERSION = 'v1.3.119 (26-08-08)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -1276,21 +1276,26 @@
             }
           });
 
-          savedItems = Array.from(itemMap.values());
-          saveState();
-          render();
-          fileInputItems.value = '';
-
-          // Sync to backend file if API is available
+          const nextItems = Array.from(itemMap.values());
           try {
-            fetch('/api/items', {
+            const res = await fetch('/api/items', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ martName: currentMart, items: savedItems })
+              body: JSON.stringify({ martName: currentMart, items: nextItems })
             });
-          } catch (err) {}
-
-          showToast(`'${file.name}' 파일에서 품목이 성공적으로 업로드되었습니다!`);
+            const data = await res.json();
+            if (!res.ok || !data || !data.success) {
+              showToast(data && data.message ? data.message : '품목 업로드 저장에 실패했습니다.');
+              return;
+            }
+            await syncWithBackend(currentMart);
+            showToast(`'${file.name}' 파일에서 품목이 성공적으로 업로드되었습니다!`);
+          } catch (err) {
+            console.warn('Item upload save error:', err);
+            showToast('품목 업로드 중 DB 저장 오류가 발생했습니다.');
+          } finally {
+            fileInputItems.value = '';
+          }
         };
 
         reader.readAsText(file);

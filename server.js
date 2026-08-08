@@ -286,6 +286,13 @@ app.post('/api/save-record', async (req, res) => {
       return res.status(400).json({ success: false, message: '장바구니가 비어 있습니다.' });
     }
 
+    const computedTotal = items.reduce((sum, item) => {
+      return sum + (Number(item.price) * Number(item.quantity));
+    }, 0);
+    if (!Number.isFinite(Number(totalAmount)) || computedTotal !== Number(totalAmount)) {
+      return res.status(400).json({ success: false, message: '영수증 품목 합계와 총액이 일치하지 않습니다.' });
+    }
+
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -684,6 +691,9 @@ app.post('/api/items', async (req, res) => {
   const { martName, items } = req.body;
   if (!items || !Array.isArray(items)) {
     return res.status(400).json({ success: false, message: '유효한 품목 리스트가 없습니다.' });
+  }
+  if (items.length === 0) {
+    return res.status(400).json({ success: false, message: '저장할 품목이 없습니다.' });
   }
 
   const canonicalMart = toCanonicalMartId(martName);

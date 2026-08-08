@@ -2564,7 +2564,7 @@ README에는 다음 내용을 포함한다.
 
 ## 25. 버전 및 수정 날짜 표시 규칙 (Version & Modified Date Policy)
 
-- 앱 코드를 수정할 때마다 `vX.X.X (YY-MM-DD)` 형식(예: `v1.3.118 (26-08-08)`)으로 버전을 올리고 수정한 날짜를 함께 표기한다.
+- 앱 코드를 수정할 때마다 `vX.X.X (YY-MM-DD)` 형식(예: `v1.3.119 (26-08-08)`)으로 버전을 올리고 수정한 날짜를 함께 표기한다.
 - 전광판 우측 상단(`#app-version-badge`), `public/app.js`(`APP_VERSION`), `package.json`, `package-lock.json`, `history.md`에 항상 동기화하여 시각적으로 보여준다.
 
 
@@ -2583,7 +2583,7 @@ README에는 다음 내용을 포함한다.
 
 - 전광판(`dashboard-board`) 영역배치:
   - **좌측 상단**: `⚙️ 예산 설정` 버튼 (`.btn-budget-setting`)
-  - **우측 상단**: 버전 표시 배지 (`#app-version-badge`, 현재 `v1.3.118 (26-08-08)`)
+  - **우측 상단**: 버전 표시 배지 (`#app-version-badge`, 현재 `v1.3.119 (26-08-08)`)
   - **좌측 하단**: `💡 스마트 추천` 버튼 (`.btn-smart-recommendation`)
   - **우측 하단**: Neon DB 로고 배지 (`.db-badge.neon-postgres-badge`)
 - `현재 총합 0원` 표시는 가로 한 줄(Single Line Flex)로 정렬된다.
@@ -2747,10 +2747,11 @@ README에는 다음 내용을 포함한다.
 ## 42. 품목/영수증 파일 입출력 규칙
 
 - `품목 MD 업로드`는 마트별 품목 파일을 읽어 대표 품명 규칙을 적용한 뒤 DB 등록 품목과 마크다운 백업을 동기화한다.
+- `/api/items`는 빈 품목 배열을 저장하지 않는다. 빈 업로드나 파싱 실패가 기존 DB 품목 삭제로 이어지면 안 된다.
 - `품목 MD 다운로드`는 현재 마트의 등록 품목과 가격 이력을 CSV, JSON, Markdown 중 선택한 형식으로 브라우저 다운로드한다.
 - 다운로드 파일명은 한글 마트명으로 인한 `Content-Disposition` 오류를 피하기 위해 ASCII 안전 이름을 사용한다.
 - `영수증 JSON 업로드`는 `martName`, `timeStr`, `items`, `totalAmount`를 읽고, 마트명이 `코스트코` 또는 `이마트`가 아니면 저장하지 않는다.
-- 영수증 JSON의 품목 합계와 `totalAmount`가 일치하지 않으면 저장하지 않고 오류를 표시한다.
+- 영수증 JSON의 품목 합계와 `totalAmount`가 일치하지 않으면 화면 업로드와 `/api/save-record` 서버 저장 모두 중단하고 오류를 표시한다.
 - 영수증 저장 전에는 미리보기 모달에서 품목, 수량, 총합을 확인한 뒤 사용자가 저장을 확정한다.
 - 로컬 `영수증_YYYY-MM-DD.json` 파일은 웹 업로드용 작업 파일이며, 별도 지시 없이는 Git 커밋/푸시에 포함하지 않는다.
 
