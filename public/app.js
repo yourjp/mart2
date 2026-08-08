@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.11 (2026-08-07)';
+  const APP_VERSION = 'v1.3.12 (2026-08-08)';
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_COSTCO = 300000;
 
@@ -117,6 +117,14 @@
   function isConsonantOnly(str) {
     if (!str) return false;
     return /^[ㄱ-ㅎ0-9\s]+$/.test(str);
+  }
+
+  function getWordChosungTokens(str) {
+    return str
+      .split(/[\s()_-]+/)
+      .map(w => w.trim())
+      .filter(Boolean)
+      .map(w => getChosung(w));
   }
 
   // --- State Variables ---
@@ -757,6 +765,9 @@
         if (isConsonantSearch) {
           // Strict Chosung Search: Must match from start of full name or start of any word!
           const chosungMatch = normNameChosung.startsWith(normQueryChosung) || nameChosung.startsWith(queryChosung);
+          const consecutiveChosungMatch =
+            queryChosung.length >= 2 &&
+            (nameChosung.includes(queryChosung) || normNameChosung.includes(normQueryChosung));
           
           const words = nameLower.split(/[\s()_-]+/);
           const wordChosungMatch = words.some(w => {
@@ -766,7 +777,14 @@
             return wChosung.startsWith(queryChosung) || normWChosung.startsWith(normQueryChosung);
           });
 
-          return chosungMatch || wordChosungMatch;
+          const wordChosungTokens = getWordChosungTokens(nameLower);
+          const joinedWordChosungMatch = wordChosungTokens.some((_, index) => {
+            const joinedFromWord = wordChosungTokens.slice(index).join('');
+            const normJoinedFromWord = normalizeTenseConsonants(joinedFromWord);
+            return joinedFromWord.startsWith(queryChosung) || normJoinedFromWord.startsWith(normQueryChosung);
+          });
+
+          return chosungMatch || consecutiveChosungMatch || wordChosungMatch || joinedWordChosungMatch;
         } else {
           // Full Text Search
           return (
