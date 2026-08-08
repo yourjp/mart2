@@ -2597,7 +2597,7 @@ README에는 다음 내용을 포함한다.
 
 - 전광판(`dashboard-board`) 영역배치:
   - **좌측 상단**: `⚙️ 예산 설정` 버튼 (`.btn-budget-setting`)
-  - **우측 상단**: 버전 표시 배지 (`#app-version-badge`, 현재 `v1.3.79 (26-08-08)`)
+  - **우측 상단**: 버전 표시 배지 (`#app-version-badge`, 현재 `v1.3.82 (26-08-08)`)
   - **좌측 하단**: `💡 스마트 추천` 버튼 (`.btn-smart-recommendation`)
   - **우측 하단**: Neon DB 로고 배지 (`.db-badge.neon-postgres-badge`)
 - `현재 총합 0원` 표시는 가로 한 줄(Single Line Flex)로 정렬된다.
@@ -2729,9 +2729,9 @@ README에는 다음 내용을 포함한다.
 - 전광판 오른쪽 아래에는 `.db-badge.neon-postgres-badge`로 Neon DB 로고만 고정 배치한다.
 
 
-## 40. 최신 기준 v1.3.79 보강 사항 (Current v1.3.79 Notes)
+## 40. 최신 기준 v1.3.82 보강 사항 (Current v1.3.82 Notes)
 
-- 현재 기준 버전은 `v1.3.79 (26-08-08)`이다.
+- 현재 기준 버전은 `v1.3.82 (26-08-08)`이다.
 - `v1.3.1` 이후 주요 보강:
   - 등록 품목 삭제 API(`DELETE /api/db/item`) 추가.
   - 장바구니 DB 저장 내역 모달 닫기 동작 복구.
@@ -2808,6 +2808,13 @@ README에는 다음 내용을 포함한다.
   - 이마트 기본 예산은 평일/토요일 6만원, 일요일 5만원으로 분리한다.
   - 일요일 이마트 기본 예산 5만원은 Neon DB `budgets`에도 저장되도록 `/api/db/sync`와 `/api/db/budget` 동기화를 보강한다.
   - Neon DB `app_settings`에 기본 예산 설정값(`emart_regular_default_budget`, `emart_sunday_default_budget`, `costco_default_budget`)을 저장한다.
+  - 영수증 JSON 업로드 예제 파일은 `예제_영수증_Costco.json`, `예제_영수증_Emart.json`을 참고한다.
+  - 품목 MD 업로드 예제 파일은 `예제_품목_Costco.md`, `예제_품목_Emart.md`를 참고한다.
+  - `📒 가계부` 버튼을 추가하고 `/api/db/household-summary?month=YYYY-MM` API로 월별 가계부를 조회한다.
+  - 가계부 예산은 이마트 `290,000원`, 코스트코 `300,000원`, 전체 `590,000원` 기준으로 계산한다.
+  - 가계부에는 잔여/초과, 지난달 대비 증가/감소, 연간 누적 지출, 마트별 비중, 예산 80% 이상 경고를 표시한다.
+  - 사용자가 영수증 JSON 변환을 요청하면 JSON 문법과 합계를 검증하고, 통과한 경우 `영수증_YYYY-MM-DD.json`으로 저장한다.
+  - 영수증 JSON 검증에 실패하면 파일 저장을 하지 않고 오류 사유를 먼저 보고한다.
   - `영수증_YYYY-MM-DD.json` 업로드 버튼을 추가하고 JSON의 `timeStr/items/totalAmount`를 구매내역 DB에 저장.
   - `방울 토마토`/`방울토마토`를 `ㅌㅁㅌ`로 찾을 수 있도록 2자 이상 연속 초성 검색 보강.
   - 개발 이력과 절차 문서를 최신 배포 및 DB 기준으로 동기화.

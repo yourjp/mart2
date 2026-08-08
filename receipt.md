@@ -90,6 +90,17 @@
 
 반드시 아래 JSON 형식으로 변환하고, 결과를 `영수증_YYYY-MM-DD.json` 파일로 저장한다. `martName`과 `timeStr`는 필수이며, 마트명이 없으면 `코스트코` 또는 `이마트` 중 어느 마트인지 먼저 물어보고, 구매일시가 없으면 JSON을 만들지 말고 사용자에게 `YYYY-MM-DD HH:mm:ss` 형식으로 구매일시를 입력하라고 요청한다.
 
+## Codex 처리 규칙
+
+사용자가 `영수증 json으로 변환해줘`, `영수증을 json으로 전환해줘`처럼 영수증 JSON 변환을 요청하면 다음 순서로 처리한다.
+
+1. 영수증 원문을 `martName`, `timeStr`, `items`, `totalAmount`, `warnings` 구조로 변환한다.
+2. JSON 문법을 검증한다.
+3. `items.reduce((sum, item) => sum + item.price * item.quantity, 0) === totalAmount` 합계를 검증한다.
+4. 품목명에 상품코드, 쿠폰 코드, `CPN`, `IRC`, 큰따옴표, 쉼표, 줄바꿈이 남아 있지 않은지 확인한다.
+5. 검증을 통과하면 구매일자의 날짜를 사용해 `영수증_YYYY-MM-DD.json` 파일로 저장한다.
+6. 검증에 실패하면 파일로 저장하지 않고 불일치 사유와 수정이 필요한 항목을 먼저 보고한다.
+
 ```json
 {
   "fileName": "영수증_YYYY-MM-DD.json",

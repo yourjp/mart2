@@ -133,13 +133,17 @@ async function initDatabase() {
      VALUES
        ($1, $2::jsonb, NOW()),
        ($3, $4::jsonb, NOW()),
-       ($5, $6::jsonb, NOW())
+       ($5, $6::jsonb, NOW()),
+       ($7, $8::jsonb, NOW()),
+       ($9, $10::jsonb, NOW())
      ON CONFLICT (key)
      DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
     [
       'emart_regular_default_budget', JSON.stringify(60000),
       'emart_sunday_default_budget', JSON.stringify(50000),
-      'costco_default_budget', JSON.stringify(300000)
+      'costco_default_budget', JSON.stringify(300000),
+      'emart_monthly_household_budget', JSON.stringify(290000),
+      'costco_monthly_household_budget', JSON.stringify(300000)
     ]
   );
 }

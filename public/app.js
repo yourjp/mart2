@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.79 (26-08-08)';
+  const APP_VERSION = 'v1.3.84 (26-08-08)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -1709,6 +1709,35 @@
       });
     }
 
+    // Household Ledger Modal
+    const btnHouseholdLedger = document.getElementById('btn-household-ledger');
+    const ledgerModal = document.getElementById('household-ledger-modal');
+    const btnLedgerModalClose = document.getElementById('btn-ledger-modal-close');
+
+    if (btnHouseholdLedger) {
+      btnHouseholdLedger.addEventListener('click', () => {
+        openHouseholdLedgerModal();
+      });
+    }
+
+    if (btnLedgerModalClose && ledgerModal) {
+      btnLedgerModalClose.addEventListener('click', () => {
+        ledgerModal.classList.add('hidden');
+      });
+
+      ledgerModal.addEventListener('click', (e) => {
+        if (e.target === ledgerModal) {
+          ledgerModal.classList.add('hidden');
+        }
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !ledgerModal.classList.contains('hidden')) {
+          ledgerModal.classList.add('hidden');
+        }
+      });
+    }
+
     // Registered Items Lookup Modal
     const btnViewAllItems = document.getElementById('btn-view-all-items');
     const allItemsModal = document.getElementById('all-items-modal');
@@ -1955,12 +1984,16 @@
         : `${selectedMonth} · ${filterTitle}`;
       const filterHtml = `
         <div class="records-month-row">
-          <button type="button" id="btn-records-prev-month" class="btn-records-month-step" title="이전 월" aria-label="이전 월">▼</button>
-          <input type="text" id="records-month-filter" class="records-month-input" value="${escapeHtml(selectedMonth)}" readonly inputmode="none" aria-label="조회 월">
-          <button type="button" id="btn-records-next-month" class="btn-records-month-step" title="다음 월" aria-label="다음 월">▲</button>
-          <button type="button" id="btn-records-month-search" class="btn-records-all">조회</button>
-          <button type="button" id="btn-records-year-search" class="btn-records-all">연간</button>
-          <button type="button" id="btn-records-all-months" class="btn-records-all">전체</button>
+          <div class="records-month-picker">
+            <button type="button" id="btn-records-prev-month" class="btn-records-month-step" title="이전 월" aria-label="이전 월">▼</button>
+            <input type="text" id="records-month-filter" class="records-month-input" value="${escapeHtml(selectedMonth)}" readonly inputmode="none" aria-label="조회 월">
+            <button type="button" id="btn-records-next-month" class="btn-records-month-step" title="다음 월" aria-label="다음 월">▲</button>
+          </div>
+          <div class="records-period-actions">
+            <button type="button" id="btn-records-month-search" class="btn-records-all">조회</button>
+            <button type="button" id="btn-records-year-search" class="btn-records-all">연간</button>
+            <button type="button" id="btn-records-all-months" class="btn-records-all">전체</button>
+          </div>
         </div>
         <div class="records-filter-buttons">
           <button type="button" id="btn-records-ranking-month" class="btn-records-all btn-records-ranking">🏆 월간 랭킹</button>
@@ -2063,6 +2096,131 @@
       console.error('Failed to load purchase records:', err);
       recordsContent.innerHTML = '<div style="padding:16px; text-align:center; color:red;">내역을 불러오는데 실패했습니다.</div>';
     }
+  }
+
+  async function openHouseholdLedgerModal(selectedMonth = getCurrentMonthValue()) {
+    const ledgerModal = document.getElementById('household-ledger-modal');
+    const ledgerContent = document.getElementById('ledger-modal-content');
+    if (!ledgerModal || !ledgerContent) return;
+
+    ledgerContent.innerHTML = '<div style="padding:16px; text-align:center; color:var(--text-muted);">가계부를 불러오는 중...</div>';
+    ledgerModal.classList.remove('hidden');
+
+    try {
+      const query = new URLSearchParams({ month: selectedMonth });
+      const res = await fetch(`/api/db/household-summary?${query.toString()}`);
+      const data = await res.json();
+      if (!data || !data.success) {
+        throw new Error(data && data.message ? data.message : '가계부 조회 실패');
+      }
+
+      ledgerContent.innerHTML = renderHouseholdLedger(data);
+      bindHouseholdLedgerControls(ledgerContent, data.month);
+    } catch (err) {
+      console.error('Failed to load household ledger:', err);
+      ledgerContent.innerHTML = '<div style="padding:16px; text-align:center; color:red;">가계부를 불러오는데 실패했습니다.</div>';
+    }
+  }
+
+  function bindHouseholdLedgerControls(container, selectedMonth) {
+    const prevButton = container.querySelector('#btn-ledger-prev-month');
+    const nextButton = container.querySelector('#btn-ledger-next-month');
+    const currentButton = container.querySelector('#btn-ledger-current-month');
+
+    if (prevButton) {
+      prevButton.onclick = () => openHouseholdLedgerModal(shiftMonthValue(selectedMonth, -1));
+    }
+    if (nextButton) {
+      nextButton.onclick = () => openHouseholdLedgerModal(shiftMonthValue(selectedMonth, 1));
+    }
+    if (currentButton) {
+      currentButton.onclick = () => openHouseholdLedgerModal(getCurrentMonthValue());
+    }
+  }
+
+  function renderHouseholdLedger(data) {
+    const monthLabel = formatLedgerMonthLabel(data.month);
+    const totalRemaining = Number(data.budget.total || 0) - Number(data.currentMonth.total || 0);
+    return `
+      <div class="ledger-month-row">
+        <button type="button" id="btn-ledger-prev-month" class="btn-records-month-step" title="이전 월" aria-label="이전 월">▼</button>
+        <div class="ledger-month-label">${escapeHtml(monthLabel)}</div>
+        <button type="button" id="btn-ledger-next-month" class="btn-records-month-step" title="다음 월" aria-label="다음 월">▲</button>
+        <button type="button" id="btn-ledger-current-month" class="btn-records-all">이번 달</button>
+      </div>
+      <div class="ledger-summary-card ${data.status.total === 'over' ? 'over' : data.status.total === 'warning' ? 'warning' : ''}">
+        <span>전체 예산 ${formatWon(data.budget.total)}</span>
+        <strong>지출 ${formatWon(data.currentMonth.total)}</strong>
+        <em>${totalRemaining >= 0 ? '잔여' : '초과'} ${formatWon(Math.abs(totalRemaining))}</em>
+      </div>
+      <div class="ledger-cards">
+        ${renderLedgerMartCard('이마트', 'emart', data)}
+        ${renderLedgerMartCard('코스트코', 'costco', data)}
+      </div>
+      <div class="ledger-share-card">
+        <div class="ledger-section-title">마트별 비중</div>
+        <div class="ledger-share-row">
+          <span>이마트 ${Number(data.share.emart || 0)}%</span>
+          <span>코스트코 ${Number(data.share.costco || 0)}%</span>
+        </div>
+        <div class="ledger-share-bar" aria-label="마트별 지출 비중">
+          <span class="ledger-share-emart" style="width:${Number(data.share.emart || 0)}%"></span>
+          <span class="ledger-share-costco" style="width:${Number(data.share.costco || 0)}%"></span>
+        </div>
+      </div>
+      <div class="ledger-year-card">
+        <div class="ledger-section-title">${escapeHtml(data.year)}년 누적 지출</div>
+        <div class="ledger-year-grid">
+          <span>전체 <strong>${formatWon(data.yearTotal.total)}</strong></span>
+          <span>이마트 <strong>${formatWon(data.yearTotal.emart)}</strong></span>
+          <span>코스트코 <strong>${formatWon(data.yearTotal.costco)}</strong></span>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderLedgerMartCard(label, key, data) {
+    const spent = Number(data.currentMonth[key] || 0);
+    const budgetAmount = Number(data.budget[key] || 0);
+    const remaining = budgetAmount - spent;
+    const diff = Number(data.diff[key] || 0);
+    const status = data.status[key] || 'normal';
+    const usage = budgetAmount > 0 ? Math.round((spent / budgetAmount) * 100) : 0;
+    const statusText = status === 'over' ? '예산 초과' : status === 'warning' ? '예산 80% 사용' : '정상';
+    return `
+      <section class="ledger-mart-card ${status}">
+        <div class="ledger-card-head">
+          <strong>${label}</strong>
+          <span>${escapeHtml(statusText)}</span>
+        </div>
+        <div class="ledger-card-main">
+          <span>예산 ${formatWon(budgetAmount)}</span>
+          <strong>지출 ${formatWon(spent)}</strong>
+          <em>${remaining >= 0 ? '잔여' : '초과'} ${formatWon(Math.abs(remaining))}</em>
+        </div>
+        <div class="ledger-progress"><span style="width:${Math.min(usage, 100)}%"></span></div>
+        <div class="ledger-card-foot">
+          <span>구매 ${Number(data.currentMonth.records[key] || 0)}건</span>
+          <span>지난달 대비 ${formatDiffWon(diff)}</span>
+          <span>올해 누적 ${formatWon(data.yearTotal[key])}</span>
+        </div>
+      </section>
+    `;
+  }
+
+  function formatLedgerMonthLabel(monthValue) {
+    const [year, month] = String(monthValue || '').split('-');
+    return year && month ? `${year}년 ${Number(month)}월 가계부` : '가계부';
+  }
+
+  function formatWon(value) {
+    return `${Number(value || 0).toLocaleString()}원`;
+  }
+
+  function formatDiffWon(value) {
+    const amount = Number(value || 0);
+    if (amount === 0) return '변동 없음';
+    return `${amount > 0 ? '▲ +' : '▼ -'}${Math.abs(amount).toLocaleString()}원`;
   }
 
   function renderItemRanking(records, selectedMonth, mode, rankBy) {

@@ -328,6 +328,114 @@ app.get('/api/db/records', async (req, res) => {
   }
 });
 
+function getPreviousMonthValue(monthValue) {
+  const safeMonth = /^\d{4}-\d{2}$/.test(monthValue) ? monthValue : new Date().toISOString().slice(0, 7);
+  const [year, month] = safeMonth.split('-').map(Number);
+  const shifted = new Date(year, month - 2, 1);
+  return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function getYearFromMonthValue(monthValue) {
+  const safeMonth = /^\d{4}-\d{2}$/.test(monthValue) ? monthValue : new Date().toISOString().slice(0, 7);
+  return safeMonth.slice(0, 4);
+}
+
+function summarizeRecords(records) {
+  const summary = {
+    total: 0,
+    emart: 0,
+    costco: 0,
+    records: { emart: 0, costco: 0 }
+  };
+
+  (records || []).forEach(record => {
+    const amount = Number(record.total_amount || 0);
+    const martId = toCanonicalMartId(record.mart_id, record.mart_id);
+    summary.total += amount;
+    if (martId === 'Costco') {
+      summary.costco += amount;
+      summary.records.costco += 1;
+    } else if (martId === 'Emart') {
+      summary.emart += amount;
+      summary.records.emart += 1;
+    }
+  });
+
+  return summary;
+}
+
+function getBudgetStatus(spent, budget) {
+  if (budget <= 0) return 'normal';
+  const ratio = spent / budget;
+  if (ratio >= 1) return 'over';
+  if (ratio >= 0.8) return 'warning';
+  return 'normal';
+}
+
+function getShare(summary) {
+  if (!summary.total) return { emart: 0, costco: 0 };
+  return {
+    emart: Math.round((summary.emart / summary.total) * 100),
+    costco: Math.round((summary.costco / summary.total) * 100)
+  };
+}
+
+async function getNumberSetting(key, fallback) {
+  const value = await dbHelper.getSetting(key);
+  const num = Number(value);
+  return Number.isFinite(num) && num > 0 ? num : fallback;
+}
+
+app.get('/api/db/household-summary', async (req, res) => {
+  try {
+    const month = /^\d{4}-\d{2}$/.test(req.query.month || '') ? req.query.month : new Date().toISOString().slice(0, 7);
+    const previousMonth = getPreviousMonthValue(month);
+    const year = getYearFromMonthValue(month);
+
+    await dbHelper.normalizePurchaseRecordMarts();
+
+    const emartBudget = await getNumberSetting('emart_monthly_household_budget', 290000);
+    const costcoBudget = await getNumberSetting('costco_monthly_household_budget', 300000);
+    const currentRecords = await dbHelper.getPurchaseRecords(null, month);
+    const previousRecords = await dbHelper.getPurchaseRecords(null, previousMonth);
+    const yearRecords = await dbHelper.getPurchaseRecords(null, null, year);
+
+    const currentMonth = summarizeRecords(currentRecords);
+    const previous = summarizeRecords(previousRecords);
+    const yearTotal = summarizeRecords(yearRecords);
+    const budget = {
+      total: emartBudget + costcoBudget,
+      emart: emartBudget,
+      costco: costcoBudget
+    };
+
+    return res.json({
+      success: true,
+      month,
+      previousMonth,
+      year,
+      budget,
+      currentMonth,
+      previousMonthSummary: previous,
+      diff: {
+        total: currentMonth.total - previous.total,
+        emart: currentMonth.emart - previous.emart,
+        costco: currentMonth.costco - previous.costco
+      },
+      yearTotal,
+      share: getShare(currentMonth),
+      status: {
+        total: getBudgetStatus(currentMonth.total, budget.total),
+        emart: getBudgetStatus(currentMonth.emart, budget.emart),
+        costco: getBudgetStatus(currentMonth.costco, budget.costco)
+      }
+    });
+  } catch (err) {
+    console.error('Error getting household summary:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // API endpoint to delete a specific purchase record from DB
 app.delete('/api/db/records/:id', async (req, res) => {
   try {

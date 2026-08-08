@@ -1034,6 +1034,10 @@ body {
   animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.modal-body {
+  min-height: 0;
+}
+
 @keyframes modalPop {
   from {
     transform: scale(0.92);
@@ -1215,11 +1219,25 @@ body {
 }
 
 .records-month-row {
-  display: flex;
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 6px;
-  align-items: center;
   margin-bottom: 8px;
+}
+
+.records-month-picker,
+.records-period-actions {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.records-month-picker {
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+}
+
+.records-period-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .records-filter-buttons {
@@ -1230,7 +1248,8 @@ body {
 }
 
 .records-month-input {
-  flex: 0 0 72px;
+  width: 100%;
+  min-width: 0;
   min-height: 42px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
@@ -1251,12 +1270,12 @@ body {
   font-weight: 700;
   padding: 0 8px;
   cursor: pointer;
-  flex: 0 0 54px;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .btn-records-month-step {
-  width: 34px;
-  flex: 0 0 34px;
+  width: 100%;
   min-height: 42px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
@@ -1377,6 +1396,191 @@ body {
 
 .records-total-box strong {
   font-size: 1.18rem;
+}
+
+.ledger-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ledger-month-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ledger-month-label {
+  flex: 1;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  font-weight: 900;
+  color: var(--text-main);
+}
+
+.ledger-summary-card,
+.ledger-share-card,
+.ledger-year-card,
+.ledger-mart-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  padding: 12px;
+}
+
+.ledger-summary-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  background: #f8fafc;
+}
+
+.ledger-summary-card strong {
+  font-size: 1.25rem;
+  color: var(--text-main);
+}
+
+.ledger-summary-card em,
+.ledger-card-main em {
+  font-style: normal;
+  font-weight: 900;
+  color: #0f766e;
+}
+
+.ledger-summary-card.warning,
+.ledger-mart-card.warning {
+  border-color: #fbbf24;
+  background: #fffbeb;
+}
+
+.ledger-summary-card.over,
+.ledger-mart-card.over {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.ledger-summary-card.over em,
+.ledger-mart-card.over .ledger-card-main em,
+.ledger-mart-card.over .ledger-card-head span {
+  color: #dc2626;
+}
+
+.ledger-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.ledger-card-head,
+.ledger-share-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.ledger-card-head strong,
+.ledger-section-title {
+  font-weight: 900;
+  color: var(--text-main);
+}
+
+.ledger-card-head span {
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: #0f766e;
+}
+
+.ledger-mart-card.warning .ledger-card-head span {
+  color: #b45309;
+}
+
+.ledger-card-main {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.ledger-card-main strong {
+  font-size: 1.08rem;
+}
+
+.ledger-progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5e7eb;
+  margin: 10px 0;
+}
+
+.ledger-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--theme-primary);
+}
+
+.ledger-mart-card.warning .ledger-progress span {
+  background: #f59e0b;
+}
+
+.ledger-mart-card.over .ledger-progress span {
+  background: #dc2626;
+}
+
+.ledger-card-foot {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.ledger-share-card,
+.ledger-year-card {
+  display: grid;
+  gap: 10px;
+}
+
+.ledger-share-row {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.ledger-share-bar {
+  display: flex;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+
+.ledger-share-emart {
+  background: #2563eb;
+}
+
+.ledger-share-costco {
+  background: #dc2626;
+}
+
+.ledger-year-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  color: var(--text-muted);
+  font-weight: 800;
+}
+
+.ledger-year-grid strong {
+  color: var(--text-main);
 }
 
 .record-mart-badge {
@@ -1514,6 +1718,16 @@ body {
 .history-modal-card {
   max-width: 480px;
   width: 92%;
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+}
+
+.history-modal-card .modal-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .history-summary-box {
