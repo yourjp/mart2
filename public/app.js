@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.119 (26-08-08)';
+  const APP_VERSION = 'v1.3.120 (26-08-08)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -1417,19 +1417,38 @@
         let historyData = null;
         let itemInfo = savedItems.find(i => (itemId && (i.id === itemId || String(i.id) === String(itemId))) || (itemName && i.name.trim() === itemName.trim()));
 
-        if (itemId && !isNaN(Number(itemId))) {
+        if (itemInfo && Array.isArray(itemInfo.priceHistory) && itemInfo.priceHistory.length > 0) {
+          historyData = itemInfo.priceHistory;
+        }
+
+        if (!historyData && itemId && !isNaN(Number(itemId))) {
           try {
             const res = await fetch(`/api/db/history?itemId=${itemId}`);
             const resData = await res.json();
             if (resData && resData.success && resData.data) {
               historyData = resData.data.history;
-              if (resData.data.item) itemInfo = resData.data.item;
+              if (resData.data.item) {
+                if (itemInfo) {
+                  itemInfo.priceHistory = historyData;
+                } else {
+                  itemInfo = resData.data.item;
+                }
+              }
             }
           } catch (e) {}
         }
 
-        if (!historyData && itemInfo && Array.isArray(itemInfo.priceHistory)) {
-          historyData = itemInfo.priceHistory;
+        if (!historyData && itemName) {
+          try {
+            const res = await fetch(`/api/db/history?mart=${encodeURIComponent(currentMart)}&name=${encodeURIComponent(itemName)}`);
+            const resData = await res.json();
+            if (resData && resData.success && resData.data) {
+              historyData = resData.data.history;
+              if (itemInfo) {
+                itemInfo.priceHistory = historyData;
+              }
+            }
+          } catch (e) {}
         }
 
         if (!historyData || historyData.length === 0) {

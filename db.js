@@ -229,7 +229,7 @@ module.exports = {
     );
   },
 
-  async getItems(martId) {
+  async getItems(martId, includeHistory = false) {
     await ensureDatabase();
     const itemsResult = await pool.query(
       'SELECT * FROM items WHERE mart_id = $1 ORDER BY use_count DESC, name ASC',
@@ -237,6 +237,10 @@ module.exports = {
     );
     const items = itemsResult.rows;
     if (items.length === 0) return [];
+
+    if (!includeHistory) {
+      return items.map(item => mapItem(item, []));
+    }
 
     const ids = items.map(item => item.id);
     const historyResult = await pool.query(
@@ -332,7 +336,20 @@ module.exports = {
       'SELECT id, price, recorded_at, note FROM price_history WHERE item_id = $1 ORDER BY recorded_at DESC, id DESC',
       [itemId]
     );
-    return { item, history: historyResult.rows.map(normalizeHistoryRow) };
+    return { item: mapItem(item, []), history: historyResult.rows.map(normalizeHistoryRow) };
+  },
+
+  async getItemHistoryByName(martId, name) {
+    await ensureDatabase();
+    const itemResult = await pool.query('SELECT * FROM items WHERE mart_id = $1 AND name = $2', [martId, name]);
+    const item = itemResult.rows[0];
+    if (!item) return null;
+
+    const historyResult = await pool.query(
+      'SELECT id, price, recorded_at, note FROM price_history WHERE item_id = $1 ORDER BY recorded_at DESC, id DESC',
+      [item.id]
+    );
+    return { item: mapItem(item, []), history: historyResult.rows.map(normalizeHistoryRow) };
   },
 
   async deleteItem(martId, name) {

@@ -114,7 +114,7 @@ app.get('/api/db/sync', async (req, res) => {
     // Seed initial data if DB table is empty
     await seedItemsFromMarkdownIfEmpty(canonicalMart);
 
-    const items = await dbHelper.getItems(canonicalMart);
+    const items = await dbHelper.getItems(canonicalMart, false);
     const cart = await dbHelper.getCart(canonicalMart);
     const budget = await dbHelper.ensureDefaultBudget(canonicalMart, getDefaultBudgetForMart(canonicalMart));
 
@@ -146,7 +146,7 @@ app.post('/api/db/item', async (req, res) => {
     const updatedItem = await dbHelper.upsertItem(canonicalMart, name, normalizedPrice, !!incrementUse);
 
     // Sync back to markdown file as backup
-    const allItems = await dbHelper.getItems(canonicalMart);
+    const allItems = await dbHelper.getItems(canonicalMart, true);
     writeItemsToMarkdownBackups(canonicalMart, allItems);
 
     return res.json({ success: true, item: updatedItem });
@@ -169,7 +169,7 @@ app.delete('/api/db/item', async (req, res) => {
 
     await dbHelper.deleteItem(canonicalMart, String(name).trim());
 
-    const allItems = await dbHelper.getItems(canonicalMart);
+    const allItems = await dbHelper.getItems(canonicalMart, true);
     writeItemsToMarkdownBackups(canonicalMart, allItems);
 
     return res.json({ success: true, message: '품목이 삭제되었습니다.' });
@@ -182,12 +182,19 @@ app.delete('/api/db/item', async (req, res) => {
 // GET /api/db/history - Fetch price history for a specific item
 app.get('/api/db/history', async (req, res) => {
   try {
-    const { itemId } = req.query;
-    if (!itemId) {
-      return res.status(400).json({ success: false, message: 'itemId가 필요합니다.' });
+    const { itemId, mart, martName, name } = req.query;
+    let data = null;
+
+    if (itemId && !isNaN(Number(itemId))) {
+      data = await dbHelper.getItemHistoryById(itemId);
+    } else if (name && String(name).trim()) {
+      const requestedMart = mart || martName || 'Emart';
+      const canonicalMart = toCanonicalMartId(requestedMart);
+      data = await dbHelper.getItemHistoryByName(canonicalMart, String(name).trim());
+    } else {
+      return res.status(400).json({ success: false, message: 'itemId 또는 name이 필요합니다.' });
     }
 
-    const data = await dbHelper.getItemHistoryById(itemId);
     if (!data) {
       return res.status(404).json({ success: false, message: '품목을 찾을 수 없습니다.' });
     }
@@ -237,7 +244,7 @@ app.get('/api/db/export', async (req, res) => {
     const canonicalMart = (martName === '이마트' || martName === 'Emart') ? 'Emart' : martName;
 
     await seedItemsFromMarkdownIfEmpty(canonicalMart);
-    const items = await dbHelper.getItems(canonicalMart);
+    const items = await dbHelper.getItems(canonicalMart, true);
     const exportedItems = items.map(item => ({
       ...item,
       priceStats: getPriceHistoryStats(item.priceHistory)
