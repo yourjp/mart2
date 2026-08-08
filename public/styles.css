@@ -1410,8 +1410,21 @@ body {
   gap: 6px;
 }
 
+.ledger-month-row .btn-records-month-step {
+  flex: 0 0 42px;
+  width: 42px;
+}
+
+.ledger-month-row .btn-records-all {
+  flex: 0 0 72px;
+  width: 72px;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
 .ledger-month-label {
   flex: 1;
+  min-width: 0;
   min-height: 42px;
   display: flex;
   align-items: center;

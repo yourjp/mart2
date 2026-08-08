@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.84 (26-08-08)';
+  const APP_VERSION = 'v1.3.89 (26-08-08)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -1633,7 +1633,7 @@
         const format = optionBtn.dataset.format || 'csv';
         window.location.href = `/api/db/export?mart=${encodeURIComponent(currentMart)}&format=${format}`;
         exportMenu.classList.add('hidden');
-        showToast(`📥 ${format.toUpperCase()} 포맷으로 품목/가격 정보 다운로드가 시작되었습니다.`);
+        showToast(`📥 ${format.toUpperCase()} 포맷으로 품목 MD 다운로드가 시작되었습니다.`);
       });
     }
 
@@ -1788,12 +1788,11 @@
       itemsToDisplay = itemsToDisplay.filter(item => item.name.toLowerCase().includes(qLower));
     }
 
-    // Sort by Low Price Ascending (낮은 가격순)
+    // Sort by display item name in Korean alphabetical order.
     itemsToDisplay.sort((a, b) => {
-      const pA = (a.lastPrice && a.lastPrice > 0) ? a.lastPrice : Infinity;
-      const pB = (b.lastPrice && b.lastPrice > 0) ? b.lastPrice : Infinity;
-      if (pA !== pB) return pA - pB;
-      return a.name.localeCompare(b.name, 'ko');
+      const nameA = getDisplayItemName(a.name, a.lastPrice);
+      const nameB = getDisplayItemName(b.name, b.lastPrice);
+      return nameA.localeCompare(nameB, 'ko-KR', { numeric: true, sensitivity: 'base' });
     });
 
     if (itemsToDisplay.length === 0) {
