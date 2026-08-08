@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.120 (26-08-08)';
+  const APP_VERSION = 'v1.3.121 (26-08-08)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -237,6 +237,34 @@
     });
   }
 
+  // --- LocalStorage Items Caching Helpers ---
+  function getLocalStorageItemsKey(mart) {
+    return 'mart_saved_items_' + (mart || 'Emart');
+  }
+
+  function loadLocalItemsCache(mart) {
+    try {
+      const raw = localStorage.getItem(getLocalStorageItemsKey(mart));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to load local items cache:', e);
+    }
+    return null;
+  }
+
+  function saveLocalItemsCache(mart, items) {
+    try {
+      if (Array.isArray(items)) {
+        localStorage.setItem(getLocalStorageItemsKey(mart), JSON.stringify(items));
+      }
+    } catch (e) {
+      console.warn('Failed to save local items cache:', e);
+    }
+  }
+
   // --- Load & Save State per Mart ---
   function loadState(mart) {
     currentMart = mart;
@@ -244,8 +272,17 @@
 
     budget = getDefaultBudgetForMart(mart);
     cart = [];
-    savedItems = [];
+    
+    // Immediate render from LocalStorage cache for instant tab switching
+    const cached = loadLocalItemsCache(mart);
+    if (cached && cached.length > 0) {
+      savedItems = cached;
+    } else {
+      savedItems = [];
+    }
+    
     calculateAutoNameIndex();
+    render();
     syncWithBackend(mart);
   }
 
@@ -257,12 +294,18 @@
       if (data && data.success) {
         budget = data.budget;
         savedItems = Array.isArray(data.items) ? data.items : [];
+        saveLocalItemsCache(mart, savedItems);
         if (Array.isArray(data.cart)) cart = data.cart;
         render();
       }
     } catch (err) {
       console.warn('Backend DB sync unavailable:', err);
-      savedItems = [];
+      const cached = loadLocalItemsCache(mart);
+      if (cached && cached.length > 0) {
+        savedItems = cached;
+      } else {
+        savedItems = [];
+      }
       cart = [];
       render();
     }
@@ -619,6 +662,7 @@
                 return;
               }
               savedItems = savedItems.filter(i => i.name.trim() !== item.name.trim());
+              saveLocalItemsCache(currentMart, savedItems);
               render();
               showToast(`'${item.name}' 품목이 DB에서 삭제되었습니다.`);
             } catch (err) {
@@ -909,6 +953,7 @@
           priceHistory: [{ price: parsedPrice, usedAt: nowIso }]
         });
       }
+      saveLocalItemsCache(currentMart, savedItems);
     }
 
     // Create Cart Item
@@ -1359,39 +1404,7 @@
 
     initReceiptPreviewModal();
 
-    // Sync State with Backend Postgres DB
-    async function syncWithBackend(mart) {
-      try {
-        const res = await fetch(`/api/db/sync?mart=${encodeURIComponent(mart)}`);
-        const data = await res.json();
-        if (data && data.success) {
-          budget = data.budget;
-          savedItems = data.items || [];
-          cart = data.cart || [];
-          render();
-        }
-      } catch (err) {
-        console.warn('Backend DB sync unavailable:', err);
-        savedItems = [];
-        cart = [];
-        render();
-      }
-    }
 
-    // Save State & Push to DB
-    function saveState(pushToDb = true) {
-      if (!pushToDb) return;
-      fetch('/api/db/cart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ martName: currentMart, cart })
-      }).catch(err => console.warn('DB cart save unavailable:', err));
-      fetch('/api/db/budget', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ martName: currentMart, amount: budget })
-      }).catch(err => console.warn('DB budget save unavailable:', err));
-    }
 
     // History Modal Elements
     const historyModal = document.getElementById('price-history-modal');
@@ -1738,6 +1751,7 @@
         const name = deleteBtn.dataset.name;
         if (confirm(`[${currentMart}] '${name}' 품목을 등록 목록에서 완전히 삭제하시겠습니까?`)) {
           savedItems = savedItems.filter(i => i.name.trim() !== name.trim());
+          saveLocalItemsCache(currentMart, savedItems);
           saveState();
           render();
           try {
