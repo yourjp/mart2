@@ -192,6 +192,23 @@ body {
   white-space: nowrap;
 }
 
+.db-badge {
+  position: absolute;
+  right: 14px;
+  bottom: 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  letter-spacing: 0;
+  z-index: 3;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+
 .dashboard-board.over-budget {
   background: var(--warning-bg) !important;
 }
