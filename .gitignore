@@ -6,3 +6,14 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+backup/
+backup_neon.js
+
+# Exclude JSON files except package.json, vercel.json, and example files
+*.json
+!package.json
+!package-lock.json
+!vercel.json
+!예제_*.json
+
+
