@@ -15,5 +15,6 @@ backup_neon.js
 !package-lock.json
 !vercel.json
 !예제_*.json
-
-
+# Exclude item files except example files
+품목*.md
+!예제_품목*.md
