@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.123 (26-08-08)';
+  const APP_VERSION = 'v1.3.128 (26-08-09)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -423,7 +423,7 @@
     } else {
       const remaining = budget - totalAmount;
       dashboardBoard.classList.remove('over-budget');
-      statusBadgeEl.textContent = '예산 내';
+      statusBadgeEl.textContent = '예산 충족';
       statusValueEl.textContent = `${remaining.toLocaleString()}원 남음`;
 
       recommendationBanner.classList.add('hidden');
