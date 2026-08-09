@@ -18,3 +18,10 @@ backup_neon.js
 # Exclude item files except example files
 품목*.md
 !예제_품목*.md
+
+# Exclude local SQLite database files
+data/
+*.db
+*.db-shm
+*.db-wal
+
