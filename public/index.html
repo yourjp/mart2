@@ -27,7 +27,7 @@
         <button type="button" class="btn-budget-setting" id="btn-budget-setting" aria-label="예산 설정">
           ⚙️ 예산 설정
         </button>
-        <span id="app-version-badge" class="version-badge">v1.3.134 (26-08-15)</span>
+        <span id="app-version-badge" class="version-badge">v1.3.137 (26-08-15)</span>
         <span class="db-badge neon-postgres-badge" aria-label="Neon DB 연결 저장소">
           <img class="neon-logo-mark" src="assets/neon-db-logo.png" alt="" aria-hidden="true">
         </span>
@@ -175,20 +175,23 @@
               📒 가계부
             </button>
           </div>
-          <div class="reset-saved-wrapper export-wrapper action-grid-2x2">
+          <div class="reset-saved-wrapper export-wrapper action-grid-3col">
             <button type="button" id="btn-view-all-items" class="btn-link btn-action-primary">
-              🔍 등록 품목/가격 조회
+              🔍 품목 조회
+            </button>
+            <button type="button" id="btn-merge-items" class="btn-link btn-action-primary">
+              🔗 품목 정리
             </button>
             <button type="button" id="btn-upload-receipt" class="btn-link btn-upload-link btn-action-primary">
-              🧾 영수증 업로드 (Json)
+              🧾 영수증
             </button>
             <input type="file" id="file-input-receipt" accept=".json" style="display:none;">
             <button type="button" id="btn-upload-receipt-rules" class="btn-link btn-upload-link btn-action-primary">
-              📤 설정 파일 업로드
+              📤 설정 업로드
             </button>
             <input type="file" id="file-input-receipt-rules" accept=".md,.txt" multiple style="display:none;">
             <button type="button" id="btn-download-receipt-rules" class="btn-link btn-action-download">
-              📥 설정 파일 다운로드
+              📥 설정 다운로드
             </button>
             <button type="button" id="btn-upload-items" class="btn-link btn-upload-link btn-action-primary">
               📤 품목 업로드
@@ -327,6 +330,32 @@
         <div id="all-items-list-container" style="max-height:360px; overflow-y:auto;">
           <!-- Item list rendered here -->
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Files Modal -->
+  <div class="modal-overlay hidden" id="settings-files-modal">
+    <div class="modal-card history-modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">📥 설정 파일</h3>
+        <button type="button" class="btn-modal-close" id="btn-settings-files-close" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="settings-files-list" class="settings-files-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Merge Items Modal -->
+  <div class="modal-overlay hidden" id="merge-items-modal">
+    <div class="modal-card history-modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">🔗 유사 품목명 정리</h3>
+        <button type="button" class="btn-modal-close" id="btn-merge-items-close" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="merge-items-list" class="merge-items-list"></div>
       </div>
     </div>
   </div>

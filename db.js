@@ -548,6 +548,102 @@ module.exports = {
     }
   },
 
+  async mergeItemNames(martId, names, representativeName) {
+    await ensureDatabase();
+    const targetName = String(representativeName || '').trim();
+    const sourceNames = Array.from(new Set((names || []).map(name => String(name || '').trim()).filter(Boolean)));
+    if (!martId || !targetName || sourceNames.length < 2 || !sourceNames.includes(targetName)) {
+      return { mergedNames: 0, updatedRecords: 0, updatedItems: 0 };
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const itemsResult = await client.query(
+        'SELECT * FROM items WHERE mart_id = $1 AND name = ANY($2::text[]) FOR UPDATE',
+        [martId, sourceNames]
+      );
+      const rows = itemsResult.rows;
+      if (rows.length === 0) {
+        await client.query('ROLLBACK');
+        return { mergedNames: 0, updatedRecords: 0, updatedItems: 0 };
+      }
+
+      let target = rows.find(row => row.name === targetName);
+      if (!target) {
+        const latest = rows
+          .filter(row => Number(row.last_price) > 0)
+          .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
+        const insertResult = await client.query(
+          `INSERT INTO items (mart_id, name, last_price, use_count, updated_at)
+           VALUES ($1, $2, $3, 0, NOW())
+           RETURNING *`,
+          [martId, targetName, latest ? latest.last_price : null]
+        );
+        target = insertResult.rows[0];
+      }
+
+      const sourceRows = rows.filter(row => row.id !== target.id);
+      const sourceIds = sourceRows.map(row => row.id);
+      if (sourceIds.length > 0) {
+        await client.query('UPDATE price_history SET item_id = $1 WHERE item_id = ANY($2::bigint[])', [target.id, sourceIds]);
+      }
+
+      const latestPriceRow = rows
+        .filter(row => Number(row.last_price) > 0)
+        .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
+      const totalUseCount = rows.reduce((sum, row) => sum + Number(row.use_count || 0), 0);
+      await client.query(
+        'UPDATE items SET last_price = $1, use_count = $2, updated_at = NOW() WHERE id = $3',
+        [latestPriceRow ? latestPriceRow.last_price : target.last_price, totalUseCount, target.id]
+      );
+
+      if (sourceIds.length > 0) {
+        await client.query('DELETE FROM items WHERE id = ANY($1::bigint[])', [sourceIds]);
+      }
+
+      await client.query(
+        `UPDATE cart_items
+         SET name = $1, updated_at = NOW()
+         WHERE mart_id = $2 AND name = ANY($3::text[])`,
+        [targetName, martId, sourceNames.filter(name => name !== targetName)]
+      );
+
+      const recordResult = await client.query(
+        'SELECT id, items_json FROM purchase_records WHERE mart_id = $1 OR mart_id = $2 FOR UPDATE',
+        [martId, martId === 'Emart' ? '이마트' : '코스트코']
+      );
+      let updatedRecords = 0;
+      let updatedItems = 0;
+      for (const row of recordResult.rows) {
+        const items = Array.isArray(row.items_json) ? row.items_json : JSON.parse(row.items_json);
+        let changed = false;
+        const nextItems = items.map(item => {
+          const itemName = String((item && item.name) || '').trim();
+          if (sourceNames.includes(itemName) && itemName !== targetName) {
+            changed = true;
+            updatedItems += 1;
+            return { ...item, name: targetName };
+          }
+          return item;
+        });
+        if (changed) {
+          await client.query('UPDATE purchase_records SET items_json = $1::jsonb WHERE id = $2', [JSON.stringify(nextItems), row.id]);
+          updatedRecords += 1;
+        }
+      }
+
+      await client.query('COMMIT');
+      return { mergedNames: sourceNames.length, updatedRecords, updatedItems };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
   async normalizePurchaseRecordMarts() {
     await ensureDatabase();
     await pool.query(

@@ -553,6 +553,21 @@ async function readSavedMarkdownFile(fileName) {
   return null;
 }
 
+async function deleteSavedMarkdownFile(fileName) {
+  const safeFileName = normalizeMarkdownFileName(fileName);
+  if (!safeFileName) return '';
+
+  await dbHelper.pool.query('DELETE FROM app_settings WHERE key = $1', [getMarkdownFileSettingKey(safeFileName)]);
+  if (safeFileName === 'receipt.md') {
+    await dbHelper.pool.query('DELETE FROM app_settings WHERE key = $1', [RECEIPT_RULES_SETTING_KEY]);
+  }
+
+  const fileNames = await getSavedMarkdownFileNames();
+  const nextFileNames = fileNames.filter(name => name !== safeFileName);
+  await dbHelper.setSetting(MD_FILE_INDEX_SETTING_KEY, nextFileNames);
+  return safeFileName;
+}
+
 function readReceiptRulesFileFallback() {
   const filePath = path.join(__dirname, 'receipt.md');
   if (!fs.existsSync(filePath)) return '';
@@ -660,6 +675,22 @@ app.get('/api/md-files/:fileName', async (req, res) => {
   }
 });
 
+app.delete('/api/md-files/:fileName', async (req, res) => {
+  try {
+    const fileName = normalizeMarkdownFileName(req.params.fileName);
+    const saved = await readSavedMarkdownFile(fileName);
+    if (!fileName || !saved) {
+      return res.status(404).json({ success: false, message: '삭제할 Markdown 파일을 찾을 수 없습니다.' });
+    }
+
+    const deletedFileName = await deleteSavedMarkdownFile(fileName);
+    return res.json({ success: true, fileName: deletedFileName, message: `${deletedFileName} 파일을 삭제했습니다.` });
+  } catch (error) {
+    console.error('Error deleting Markdown file:', error);
+    return res.status(500).json({ success: false, message: 'Markdown 파일 삭제 실패: ' + error.message });
+  }
+});
+
 // API endpoint to delete a specific purchase record from DB
 app.delete('/api/db/records/:id', async (req, res) => {
   try {
@@ -693,6 +724,82 @@ app.post('/api/db/records/rename-item', async (req, res) => {
   } catch (err) {
     console.error('Error renaming purchase record item:', err);
     return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.get('/api/db/items/merge-suggestions', async (req, res) => {
+  try {
+    const canonicalMart = toCanonicalMartId(req.query.mart || 'Emart');
+    await dbHelper.normalizePurchaseRecordMarts();
+    const registeredItems = await dbHelper.getItems(canonicalMart, false);
+    const records = await dbHelper.getPurchaseRecords(getMartRecordAliases(canonicalMart));
+    const groups = new Map();
+
+    const addName = (name, source, lastPrice = null) => {
+      const representative = getRepresentativeItemName(canonicalMart, name);
+      const key = getDuplicateItemKey(canonicalMart, representative);
+      if (!key || key.length < 2) return;
+      if (!groups.has(key)) {
+        groups.set(key, { key, representative, names: new Map() });
+      }
+      const group = groups.get(key);
+      if (!group.names.has(name)) {
+        group.names.set(name, { name, sources: new Set(), lastPrice });
+      }
+      const entry = group.names.get(name);
+      entry.sources.add(source);
+      if (lastPrice) entry.lastPrice = lastPrice;
+      if (representative.length < group.representative.length || group.representative === name) {
+        group.representative = representative;
+      }
+    };
+
+    registeredItems.forEach(item => addName(item.name, 'registered', item.lastPrice));
+    records.forEach(record => {
+      const items = Array.isArray(record.items_json) ? record.items_json : [];
+      items.forEach(item => addName(String(item.name || '').trim(), 'record', Number(item.price) || null));
+    });
+
+    const suggestions = Array.from(groups.values())
+      .map(group => ({
+        key: group.key,
+        representative: group.representative,
+        names: Array.from(group.names.values()).map(entry => ({
+          name: entry.name,
+          sources: Array.from(entry.sources),
+          lastPrice: entry.lastPrice
+        }))
+      }))
+      .filter(group => group.names.length > 1)
+      .sort((a, b) => b.names.length - a.names.length || a.representative.localeCompare(b.representative, 'ko-KR'));
+
+    return res.json({ success: true, martName: canonicalMart, suggestions });
+  } catch (error) {
+    console.error('Error getting merge suggestions:', error);
+    return res.status(500).json({ success: false, message: '유사 품목 후보 조회 실패: ' + error.message });
+  }
+});
+
+app.post('/api/db/items/merge', async (req, res) => {
+  try {
+    const canonicalMart = toCanonicalMartId(req.body.martName || req.body.mart || 'Emart');
+    const representativeName = String(req.body.representativeName || '').trim();
+    const names = Array.isArray(req.body.names) ? req.body.names : [];
+    if (!representativeName || names.length < 2) {
+      return res.status(400).json({ success: false, message: '대표 품명과 병합할 품목명이 필요합니다.' });
+    }
+
+    const result = await dbHelper.mergeItemNames(canonicalMart, names, representativeName);
+    const allItems = await dbHelper.getItems(canonicalMart, true);
+    writeItemsToMarkdownBackups(canonicalMart, allItems);
+    return res.json({
+      success: true,
+      message: `${result.mergedNames}개 품목명을 '${representativeName}'으로 병합했습니다.`,
+      ...result
+    });
+  } catch (error) {
+    console.error('Error merging item names:', error);
+    return res.status(500).json({ success: false, message: '품목명 병합 실패: ' + error.message });
   }
 });
 

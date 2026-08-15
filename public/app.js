@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.134 (26-08-15)';
+  const APP_VERSION = 'v1.3.137 (26-08-15)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -221,6 +221,13 @@
   const btnUploadReceiptRules = document.getElementById('btn-upload-receipt-rules');
   const fileInputReceiptRules = document.getElementById('file-input-receipt-rules');
   const btnDownloadReceiptRules = document.getElementById('btn-download-receipt-rules');
+  const settingsFilesModal = document.getElementById('settings-files-modal');
+  const btnSettingsFilesClose = document.getElementById('btn-settings-files-close');
+  const settingsFilesList = document.getElementById('settings-files-list');
+  const btnMergeItems = document.getElementById('btn-merge-items');
+  const mergeItemsModal = document.getElementById('merge-items-modal');
+  const btnMergeItemsClose = document.getElementById('btn-merge-items-close');
+  const mergeItemsList = document.getElementById('merge-items-list');
 
   // --- Legacy browser cache removal ---
   function migrateLegacyData() {
@@ -1463,20 +1470,25 @@
 
     if (btnDownloadReceiptRules) {
       btnDownloadReceiptRules.addEventListener('click', async () => {
-        try {
-          const res = await fetch('/api/md-files');
-          const data = await res.json();
-          const files = data && data.success && Array.isArray(data.files) ? data.files : [];
-          const fallbackFiles = files.length ? files : ['receipt.md'];
-          const fileName = fallbackFiles.length === 1
-            ? fallbackFiles[0]
-            : prompt(`다운로드할 파일명을 입력하세요.\n\n${fallbackFiles.join('\n')}`, fallbackFiles[0]);
-          if (!fileName) return;
-          window.location.href = `/api/md-files/${encodeURIComponent(fileName)}`;
-        } catch (error) {
-          console.error('Markdown file download error:', error);
-          showToast('MD 파일 목록을 불러오지 못했습니다.');
-        }
+        openSettingsFilesModal();
+      });
+    }
+
+    if (btnSettingsFilesClose && settingsFilesModal) {
+      btnSettingsFilesClose.addEventListener('click', closeSettingsFilesModal);
+      settingsFilesModal.addEventListener('click', (e) => {
+        if (e.target === settingsFilesModal) closeSettingsFilesModal();
+      });
+    }
+
+    if (btnMergeItems) {
+      btnMergeItems.addEventListener('click', openMergeItemsModal);
+    }
+
+    if (btnMergeItemsClose && mergeItemsModal) {
+      btnMergeItemsClose.addEventListener('click', closeMergeItemsModal);
+      mergeItemsModal.addEventListener('click', (e) => {
+        if (e.target === mergeItemsModal) closeMergeItemsModal();
       });
     }
 
@@ -2397,6 +2409,147 @@
     modal.classList.remove('hidden');
   }
 
+  function closeSettingsFilesModal() {
+    if (settingsFilesModal) settingsFilesModal.classList.add('hidden');
+  }
+
+  async function openSettingsFilesModal() {
+    if (!settingsFilesModal || !settingsFilesList) return;
+    settingsFilesList.innerHTML = '<div class="settings-file-empty">설정 파일 목록을 불러오는 중...</div>';
+    settingsFilesModal.classList.remove('hidden');
+
+    try {
+      const res = await fetch('/api/md-files');
+      const data = await res.json();
+      const files = data && data.success && Array.isArray(data.files) ? data.files : [];
+      if (!files.length) {
+        settingsFilesList.innerHTML = '<div class="settings-file-empty">업로드된 설정 파일이 없습니다.</div>';
+        return;
+      }
+
+      settingsFilesList.innerHTML = files.map(fileName => `
+        <div class="settings-file-row">
+          <span class="settings-file-name">${escapeHtml(fileName)}</span>
+          <div class="settings-file-actions">
+            <button type="button" class="settings-file-download" data-file="${escapeHtml(fileName)}">다운로드</button>
+            <button type="button" class="settings-file-delete" data-file="${escapeHtml(fileName)}">삭제</button>
+          </div>
+        </div>
+      `).join('');
+    } catch (error) {
+      console.error('Markdown file list error:', error);
+      settingsFilesList.innerHTML = '<div class="settings-file-empty">설정 파일 목록을 불러오지 못했습니다.</div>';
+    }
+  }
+
+  if (settingsFilesList) {
+    settingsFilesList.addEventListener('click', async (e) => {
+      const downloadButton = e.target.closest('.settings-file-download');
+      const deleteButton = e.target.closest('.settings-file-delete');
+      const fileName = (downloadButton || deleteButton) && (downloadButton || deleteButton).dataset.file;
+      if (!fileName) return;
+
+      if (downloadButton) {
+        window.location.href = `/api/md-files/${encodeURIComponent(fileName)}`;
+        return;
+      }
+
+      if (deleteButton) {
+        if (!confirm(`'${fileName}' 설정 파일을 삭제하시겠습니까?`)) return;
+        try {
+          const res = await fetch(`/api/md-files/${encodeURIComponent(fileName)}`, { method: 'DELETE' });
+          const data = await res.json();
+          if (!res.ok || !data || !data.success) {
+            showToast(data && data.message ? data.message : '설정 파일 삭제에 실패했습니다.');
+            return;
+          }
+          showToast(`'${data.fileName || fileName}' 설정 파일을 삭제했습니다.`);
+          openSettingsFilesModal();
+        } catch (error) {
+          console.error('Markdown file delete error:', error);
+          showToast('설정 파일 삭제 중 오류가 발생했습니다.');
+        }
+      }
+    });
+  }
+
+  function closeMergeItemsModal() {
+    if (mergeItemsModal) mergeItemsModal.classList.add('hidden');
+  }
+
+  async function openMergeItemsModal() {
+    if (!mergeItemsModal || !mergeItemsList) return;
+    mergeItemsList.innerHTML = '<div class="merge-item-empty">유사 품목 후보를 찾는 중...</div>';
+    mergeItemsModal.classList.remove('hidden');
+
+    try {
+      const res = await fetch(`/api/db/items/merge-suggestions?mart=${encodeURIComponent(currentMart)}`);
+      const data = await res.json();
+      const suggestions = data && data.success && Array.isArray(data.suggestions) ? data.suggestions : [];
+      if (!suggestions.length) {
+        mergeItemsList.innerHTML = '<div class="merge-item-empty">정리할 유사 품목 후보가 없습니다.</div>';
+        return;
+      }
+
+      mergeItemsList.innerHTML = suggestions.map((group, index) => {
+        const namesHtml = group.names.map(entry => `
+          <label class="merge-item-name-option">
+            <input type="radio" name="merge-representative-${index}" value="${escapeHtml(entry.name)}" ${entry.name === group.representative ? 'checked' : ''}>
+            <span>${escapeHtml(entry.name)}</span>
+            ${entry.lastPrice ? `<em>${Number(entry.lastPrice).toLocaleString()}원</em>` : ''}
+          </label>
+        `).join('');
+        return `
+          <div class="merge-item-card" data-index="${index}">
+            <div class="merge-item-card-title">대표 품명 선택</div>
+            <div class="merge-item-options">${namesHtml}</div>
+            <button type="button" class="merge-item-apply" data-index="${index}">선택 대표명으로 합치기</button>
+          </div>
+        `;
+      }).join('');
+      mergeItemsList.dataset.suggestions = JSON.stringify(suggestions);
+    } catch (error) {
+      console.error('Merge suggestions error:', error);
+      mergeItemsList.innerHTML = '<div class="merge-item-empty">유사 품목 후보를 불러오지 못했습니다.</div>';
+    }
+  }
+
+  if (mergeItemsList) {
+    mergeItemsList.addEventListener('click', async (e) => {
+      const button = e.target.closest('.merge-item-apply');
+      if (!button) return;
+
+      const index = Number(button.dataset.index);
+      const suggestions = JSON.parse(mergeItemsList.dataset.suggestions || '[]');
+      const group = suggestions[index];
+      if (!group) return;
+
+      const selected = mergeItemsList.querySelector(`input[name="merge-representative-${index}"]:checked`);
+      const representativeName = selected ? selected.value : group.representative;
+      const names = group.names.map(entry => entry.name);
+      if (!confirm(`${names.length}개 품목명을 '${representativeName}'으로 합치시겠습니까?`)) return;
+
+      try {
+        const res = await fetch('/api/db/items/merge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ martName: currentMart, representativeName, names })
+        });
+        const data = await res.json();
+        if (!res.ok || !data || !data.success) {
+          showToast(data && data.message ? data.message : '품목명 병합에 실패했습니다.');
+          return;
+        }
+        showToast(data.message || '품목명을 병합했습니다.');
+        await syncWithBackend(currentMart);
+        openMergeItemsModal();
+      } catch (error) {
+        console.error('Merge item names error:', error);
+        showToast('품목명 병합 중 오류가 발생했습니다.');
+      }
+    });
+  }
+
   function getDisplayMartName(martId) {
     if (martId === 'Costco' || martId === '코스트코') return '코스트코';
     if (martId === 'Emart' || martId === '이마트') return '이마트';
@@ -2419,6 +2572,7 @@
     const renameOptions = recordsContent.querySelector('#records-rename-options');
     const renameImpact = recordsContent.querySelector('#records-rename-impact');
     let renameItemMap = new Map();
+    let lastAutoFilledRenameNew = '';
 
     if (renameOldInput && renameOptions && renameImpact) {
       fetch('/api/db/records/item-names')
@@ -2442,7 +2596,15 @@
         });
 
       renameOldInput.addEventListener('input', () => {
-        const selected = renameItemMap.get(renameOldInput.value.trim());
+        const oldNameValue = renameOldInput.value.trim();
+        const selected = renameItemMap.get(oldNameValue);
+        if (selected && renameNewInput) {
+          const currentNewName = renameNewInput.value.trim();
+          if (!currentNewName || currentNewName === lastAutoFilledRenameNew) {
+            renameNewInput.value = oldNameValue;
+            lastAutoFilledRenameNew = oldNameValue;
+          }
+        }
         renameImpact.textContent = selected
           ? `${selected.recordCount}건의 구매내역, ${selected.itemCount}개 품목이 수정 대상입니다.`
           : '목록에서 기존 품명을 선택하세요.';
