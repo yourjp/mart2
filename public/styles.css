@@ -832,13 +832,44 @@ body {
 }
 
 .btn-link {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  border-radius: 6px;
   font-size: 0.85rem;
-  text-decoration: underline;
+  font-weight: 700;
+  text-decoration: none;
   cursor: pointer;
   padding: 8px;
+}
+
+.btn-link:hover,
+.btn-link:active {
+  background: var(--bg-soft);
+  color: var(--theme-primary);
+  text-decoration: none;
+}
+
+.btn-link.btn-action-primary {
+  color: #047857;
+  border-color: rgba(4, 120, 87, 0.35);
+}
+
+.btn-link.btn-action-primary:hover,
+.btn-link.btn-action-primary:active {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.btn-link.btn-action-download {
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.35);
+}
+
+.btn-link.btn-action-download:hover,
+.btn-link.btn-action-download:active {
+  background: #fef2f2;
+  color: #991b1b;
 }
 
 /* Cart List & Items */
@@ -1202,8 +1233,13 @@ body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: stretch;
+  grid-auto-rows: minmax(44px, auto);
   gap: 8px;
   width: 100%;
+}
+
+.action-grid-2x2 > * {
+  min-width: 0;
 }
 
 .action-grid-2x2 .btn-link,
@@ -1216,15 +1252,20 @@ body {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  text-align: center;
+  justify-content: flex-start;
+  text-align: left;
   line-height: 1.25;
+  height: 100%;
+  white-space: normal;
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 .export-dropdown-wrapper {
   position: relative;
   width: 100%;
   display: flex;
+  align-items: stretch;
   justify-content: center;
 }
 

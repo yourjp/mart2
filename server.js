@@ -507,6 +507,51 @@ app.get('/api/db/household-summary', async (req, res) => {
 });
 
 const RECEIPT_RULES_SETTING_KEY = 'receipt_md_content';
+const MD_FILE_INDEX_SETTING_KEY = 'md_file_index';
+
+function normalizeMarkdownFileName(fileName) {
+  const baseName = path.basename(String(fileName || '').trim()).replace(/[\\/:*?"<>|]/g, '_');
+  if (!baseName || !/\.(md|txt)$/i.test(baseName)) return '';
+  return baseName;
+}
+
+function getMarkdownFileSettingKey(fileName) {
+  return `md_file::${fileName}`;
+}
+
+async function getSavedMarkdownFileNames() {
+  const savedIndex = await dbHelper.getSetting(MD_FILE_INDEX_SETTING_KEY);
+  return Array.isArray(savedIndex)
+    ? savedIndex.map(normalizeMarkdownFileName).filter(Boolean)
+    : [];
+}
+
+async function upsertSavedMarkdownFile(fileName, content) {
+  const safeFileName = normalizeMarkdownFileName(fileName);
+  if (!safeFileName) {
+    throw new Error('저장할 Markdown 파일명은 .md 또는 .txt여야 합니다.');
+  }
+
+  await dbHelper.setSetting(getMarkdownFileSettingKey(safeFileName), {
+    fileName: safeFileName,
+    content,
+    updatedAt: new Date().toISOString()
+  });
+
+  const fileNames = await getSavedMarkdownFileNames();
+  const nextFileNames = Array.from(new Set([...fileNames, safeFileName]))
+    .sort((a, b) => a.localeCompare(b, 'ko-KR', { numeric: true, sensitivity: 'base' }));
+  await dbHelper.setSetting(MD_FILE_INDEX_SETTING_KEY, nextFileNames);
+  return safeFileName;
+}
+
+async function readSavedMarkdownFile(fileName) {
+  const safeFileName = normalizeMarkdownFileName(fileName);
+  if (!safeFileName) return null;
+  const saved = await dbHelper.getSetting(getMarkdownFileSettingKey(safeFileName));
+  if (saved && typeof saved.content === 'string') return saved;
+  return null;
+}
 
 function readReceiptRulesFileFallback() {
   const filePath = path.join(__dirname, 'receipt.md');
@@ -516,7 +561,10 @@ function readReceiptRulesFileFallback() {
 
 app.get('/api/receipt-rules', async (req, res) => {
   try {
-    const savedContent = await dbHelper.getSetting(RECEIPT_RULES_SETTING_KEY);
+    const savedReceiptFile = await readSavedMarkdownFile('receipt.md');
+    const savedContent = savedReceiptFile && savedReceiptFile.content
+      ? savedReceiptFile.content
+      : await dbHelper.getSetting(RECEIPT_RULES_SETTING_KEY);
     const content = typeof savedContent === 'string' && savedContent.trim()
       ? savedContent
       : readReceiptRulesFileFallback();
@@ -542,6 +590,7 @@ app.post('/api/receipt-rules', async (req, res) => {
     }
 
     await dbHelper.setSetting(RECEIPT_RULES_SETTING_KEY, content);
+    await upsertSavedMarkdownFile('receipt.md', content);
     if (!process.env.VERCEL) {
       fs.writeFileSync(path.join(__dirname, 'receipt.md'), content, 'utf8');
     }
@@ -549,6 +598,65 @@ app.post('/api/receipt-rules', async (req, res) => {
   } catch (error) {
     console.error('Error saving receipt.md:', error);
     return res.status(500).json({ success: false, message: 'receipt.md 저장 실패: ' + error.message });
+  }
+});
+
+app.get('/api/md-files', async (req, res) => {
+  try {
+    const files = await getSavedMarkdownFileNames();
+    return res.json({ success: true, files });
+  } catch (error) {
+    console.error('Error listing Markdown files:', error);
+    return res.status(500).json({ success: false, message: 'Markdown 파일 목록 조회 실패: ' + error.message });
+  }
+});
+
+app.post('/api/md-files', async (req, res) => {
+  try {
+    const fileName = normalizeMarkdownFileName(req.body.fileName);
+    const content = typeof req.body.content === 'string' ? req.body.content : '';
+    if (!fileName) {
+      return res.status(400).json({ success: false, message: '저장할 Markdown 파일명은 .md 또는 .txt여야 합니다.' });
+    }
+    if (!content.trim()) {
+      return res.status(400).json({ success: false, message: '저장할 Markdown 파일 내용이 없습니다.' });
+    }
+
+    const savedFileName = await upsertSavedMarkdownFile(fileName, content);
+    if (savedFileName === 'receipt.md') {
+      await dbHelper.setSetting(RECEIPT_RULES_SETTING_KEY, content);
+      if (!process.env.VERCEL) {
+        fs.writeFileSync(path.join(__dirname, 'receipt.md'), content, 'utf8');
+      }
+    }
+    return res.json({ success: true, fileName: savedFileName, message: `${savedFileName} 파일을 DB에 저장했습니다.` });
+  } catch (error) {
+    console.error('Error saving Markdown file:', error);
+    return res.status(500).json({ success: false, message: 'Markdown 파일 저장 실패: ' + error.message });
+  }
+});
+
+app.get('/api/md-files/:fileName', async (req, res) => {
+  try {
+    const fileName = normalizeMarkdownFileName(req.params.fileName);
+    const saved = await readSavedMarkdownFile(fileName);
+    let content = saved && typeof saved.content === 'string' ? saved.content : '';
+    if (!content.trim() && fileName === 'receipt.md') {
+      const legacyContent = await dbHelper.getSetting(RECEIPT_RULES_SETTING_KEY);
+      content = typeof legacyContent === 'string' && legacyContent.trim()
+        ? legacyContent
+        : readReceiptRulesFileFallback();
+    }
+    if (!fileName || !content.trim()) {
+      return res.status(404).json({ success: false, message: 'Markdown 파일을 찾을 수 없습니다.' });
+    }
+
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    return res.send(content);
+  } catch (error) {
+    console.error('Error downloading Markdown file:', error);
+    return res.status(500).json({ success: false, message: 'Markdown 파일 다운로드 실패: ' + error.message });
   }
 });
 

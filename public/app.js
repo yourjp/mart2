@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.132 (26-08-15)';
+  const APP_VERSION = 'v1.3.134 (26-08-15)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -1422,44 +1422,61 @@
       });
 
       fileInputReceiptRules.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = Array.from(e.target.files || []);
+        if (!files.length) return;
 
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
+        const readFileAsText = (file) => new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (evt) => resolve(String(evt.target.result || ''));
+          reader.onerror = reject;
+          reader.readAsText(file);
+        });
+
+        (async () => {
+          let savedCount = 0;
           try {
-            const content = String(evt.target.result || '');
-            if (!content.trim()) {
-              showToast('저장할 receipt.md 내용이 없습니다.');
-              return;
+            for (const file of files) {
+              const content = await readFileAsText(file);
+              if (!content.trim()) continue;
+              const res = await fetch('/api/md-files', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileName: file.name, content })
+              });
+              const data = await res.json();
+              if (!res.ok || !data || !data.success) {
+                showToast(data && data.message ? data.message : `${file.name} 저장에 실패했습니다.`);
+                return;
+              }
+              savedCount += 1;
             }
-
-            const res = await fetch('/api/receipt-rules', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ content })
-            });
-            const data = await res.json();
-            if (!res.ok || !data || !data.success) {
-              showToast(data && data.message ? data.message : 'receipt.md 저장에 실패했습니다.');
-              return;
-            }
-            showToast(`'${file.name}' 내용을 receipt.md DB 기준으로 저장했습니다.`);
+            showToast(`${savedCount.toLocaleString()}개 MD 파일을 DB 기준으로 저장했습니다.`);
           } catch (error) {
-            console.error('Receipt rules upload error:', error);
-            showToast('receipt.md 저장 중 오류가 발생했습니다.');
+            console.error('Markdown file upload error:', error);
+            showToast('MD 파일 저장 중 오류가 발생했습니다.');
           } finally {
             fileInputReceiptRules.value = '';
           }
-        };
-
-        reader.readAsText(file);
+        })();
       });
     }
 
     if (btnDownloadReceiptRules) {
-      btnDownloadReceiptRules.addEventListener('click', () => {
-        window.location.href = '/api/receipt-rules';
+      btnDownloadReceiptRules.addEventListener('click', async () => {
+        try {
+          const res = await fetch('/api/md-files');
+          const data = await res.json();
+          const files = data && data.success && Array.isArray(data.files) ? data.files : [];
+          const fallbackFiles = files.length ? files : ['receipt.md'];
+          const fileName = fallbackFiles.length === 1
+            ? fallbackFiles[0]
+            : prompt(`다운로드할 파일명을 입력하세요.\n\n${fallbackFiles.join('\n')}`, fallbackFiles[0]);
+          if (!fileName) return;
+          window.location.href = `/api/md-files/${encodeURIComponent(fileName)}`;
+        } catch (error) {
+          console.error('Markdown file download error:', error);
+          showToast('MD 파일 목록을 불러오지 못했습니다.');
+        }
       });
     }
 
