@@ -27,7 +27,7 @@
         <button type="button" class="btn-budget-setting" id="btn-budget-setting" aria-label="예산 설정">
           ⚙️ 예산 설정
         </button>
-        <span id="app-version-badge" class="version-badge">v1.3.128 (26-08-09)</span>
+        <span id="app-version-badge" class="version-badge">v1.3.130 (26-08-15)</span>
         <span class="db-badge neon-postgres-badge" aria-label="Neon DB 연결 저장소">
           <img class="neon-logo-mark" src="assets/neon-db-logo.png" alt="" aria-hidden="true">
         </span>
@@ -187,6 +187,13 @@
               🧾 영수증 JSON 업로드
             </button>
             <input type="file" id="file-input-receipt" accept=".json" style="display:none;">
+            <button type="button" id="btn-upload-receipt-rules" class="btn-link btn-upload-link">
+              📤 receipt.md 저장
+            </button>
+            <input type="file" id="file-input-receipt-rules" accept=".md,.txt" style="display:none;">
+            <button type="button" id="btn-download-receipt-rules" class="btn-link">
+              📥 receipt.md 다운로드
+            </button>
             
             <div class="export-dropdown-wrapper">
               <button type="button" id="btn-export-data" class="btn-link btn-export-link">

@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.128 (26-08-09)';
+  const APP_VERSION = 'v1.3.130 (26-08-15)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -32,6 +32,10 @@
 
   function isCostcoMart(mart) {
     return mart === 'Costco' || mart === '코스트코';
+  }
+
+  function isSameMart(a, b) {
+    return (isEmartMart(a) && isEmartMart(b)) || (isCostcoMart(a) && isCostcoMart(b));
   }
 
   function isSunday(date = new Date()) {
@@ -214,6 +218,9 @@
   const fileInputItems = document.getElementById('file-input-items');
   const btnUploadReceipt = document.getElementById('btn-upload-receipt');
   const fileInputReceipt = document.getElementById('file-input-receipt');
+  const btnUploadReceiptRules = document.getElementById('btn-upload-receipt-rules');
+  const fileInputReceiptRules = document.getElementById('file-input-receipt-rules');
+  const btnDownloadReceiptRules = document.getElementById('btn-download-receipt-rules');
 
   // --- Legacy browser cache removal ---
   function migrateLegacyData() {
@@ -1409,6 +1416,53 @@
       });
     }
 
+    if (btnUploadReceiptRules && fileInputReceiptRules) {
+      btnUploadReceiptRules.addEventListener('click', () => {
+        fileInputReceiptRules.click();
+      });
+
+      fileInputReceiptRules.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const content = String(evt.target.result || '');
+            if (!content.trim()) {
+              showToast('저장할 receipt.md 내용이 없습니다.');
+              return;
+            }
+
+            const res = await fetch('/api/receipt-rules', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content })
+            });
+            const data = await res.json();
+            if (!res.ok || !data || !data.success) {
+              showToast(data && data.message ? data.message : 'receipt.md 저장에 실패했습니다.');
+              return;
+            }
+            showToast(`'${file.name}' 내용을 receipt.md로 저장했습니다.`);
+          } catch (error) {
+            console.error('Receipt rules upload error:', error);
+            showToast('receipt.md 저장 중 오류가 발생했습니다.');
+          } finally {
+            fileInputReceiptRules.value = '';
+          }
+        };
+
+        reader.readAsText(file);
+      });
+    }
+
+    if (btnDownloadReceiptRules) {
+      btnDownloadReceiptRules.addEventListener('click', () => {
+        window.location.href = '/api/receipt-rules';
+      });
+    }
+
     initReceiptPreviewModal();
 
 
@@ -2277,7 +2331,12 @@
             showToast(data && data.message ? data.message : '영수증 저장에 실패했습니다.');
             return;
           }
-          showToast(`'${fileName}' 영수증을 구매내역에 저장했습니다.`);
+          showToast(`'${fileName}' 영수증을 구매내역과 등록 품목에 저장했습니다.`);
+          if (isSameMart(record.martName, currentMart)) {
+            await syncWithBackend(currentMart);
+          } else {
+            localStorage.removeItem(getLocalStorageItemsKey(record.martName));
+          }
           loadDashboardMonthlyProgress();
           closePreview();
         } catch (error) {
