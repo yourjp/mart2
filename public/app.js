@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.131 (26-08-15)';
+  const APP_VERSION = 'v1.3.132 (26-08-15)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -1444,7 +1444,7 @@
               showToast(data && data.message ? data.message : 'receipt.md 저장에 실패했습니다.');
               return;
             }
-            showToast(`'${file.name}' 내용을 receipt.md로 저장했습니다.`);
+            showToast(`'${file.name}' 내용을 receipt.md DB 기준으로 저장했습니다.`);
           } catch (error) {
             console.error('Receipt rules upload error:', error);
             showToast('receipt.md 저장 중 오류가 발생했습니다.');

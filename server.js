@@ -506,31 +506,46 @@ app.get('/api/db/household-summary', async (req, res) => {
   }
 });
 
-app.get('/api/receipt-rules', (req, res) => {
+const RECEIPT_RULES_SETTING_KEY = 'receipt_md_content';
+
+function readReceiptRulesFileFallback() {
+  const filePath = path.join(__dirname, 'receipt.md');
+  if (!fs.existsSync(filePath)) return '';
+  return fs.readFileSync(filePath, 'utf8');
+}
+
+app.get('/api/receipt-rules', async (req, res) => {
   try {
-    const filePath = path.join(__dirname, 'receipt.md');
-    if (!fs.existsSync(filePath)) {
+    const savedContent = await dbHelper.getSetting(RECEIPT_RULES_SETTING_KEY);
+    const content = typeof savedContent === 'string' && savedContent.trim()
+      ? savedContent
+      : readReceiptRulesFileFallback();
+
+    if (!content.trim()) {
       return res.status(404).json({ success: false, message: 'receipt.md 파일을 찾을 수 없습니다.' });
     }
 
     res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="receipt.md"');
-    return res.send(fs.readFileSync(filePath, 'utf8'));
+    return res.send(content);
   } catch (error) {
     console.error('Error downloading receipt.md:', error);
     return res.status(500).json({ success: false, message: 'receipt.md 다운로드 실패: ' + error.message });
   }
 });
 
-app.post('/api/receipt-rules', (req, res) => {
+app.post('/api/receipt-rules', async (req, res) => {
   try {
     const content = typeof req.body.content === 'string' ? req.body.content : '';
     if (!content.trim()) {
       return res.status(400).json({ success: false, message: '저장할 receipt.md 내용이 없습니다.' });
     }
 
-    fs.writeFileSync(path.join(__dirname, 'receipt.md'), content, 'utf8');
-    return res.json({ success: true, message: 'receipt.md 파일을 저장했습니다.' });
+    await dbHelper.setSetting(RECEIPT_RULES_SETTING_KEY, content);
+    if (!process.env.VERCEL) {
+      fs.writeFileSync(path.join(__dirname, 'receipt.md'), content, 'utf8');
+    }
+    return res.json({ success: true, message: 'receipt.md 파일을 DB에 저장했습니다.' });
   } catch (error) {
     console.error('Error saving receipt.md:', error);
     return res.status(500).json({ success: false, message: 'receipt.md 저장 실패: ' + error.message });
