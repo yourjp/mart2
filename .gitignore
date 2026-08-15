@@ -17,6 +17,7 @@ backup_neon.js
 !예제_*.json
 # Exclude item files except example files
 품목*.md
+영수증*.json
 !예제_품목*.md
 
 # Exclude local SQLite database files

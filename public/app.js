@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.137 (26-08-15)';
+  const APP_VERSION = 'v1.3.139 (26-08-15)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -2706,6 +2706,7 @@
             return;
           }
           showToast(data.message || '구매내역 품목명을 정정했습니다.');
+          await syncWithBackend(currentMart);
           openPurchaseRecordsModal(monthInput.value, mode, rankBy);
         } catch (err) {
           console.error('Rename purchase record item error:', err);

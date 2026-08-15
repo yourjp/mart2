@@ -538,8 +538,61 @@ module.exports = {
         }
       }
 
+      const itemRowsResult = await client.query(
+        'SELECT * FROM items WHERE name = $1 OR name = $2 FOR UPDATE',
+        [fromName, toName]
+      );
+      const rowsByMart = new Map();
+      itemRowsResult.rows.forEach(row => {
+        if (!rowsByMart.has(row.mart_id)) rowsByMart.set(row.mart_id, []);
+        rowsByMart.get(row.mart_id).push(row);
+      });
+
+      let updatedRegisteredItems = 0;
+      let mergedRegisteredItems = 0;
+      const affectedMarts = new Set();
+
+      for (const [martId, rows] of rowsByMart.entries()) {
+        const source = rows.find(row => row.name === fromName);
+        if (!source) continue;
+
+        const target = rows.find(row => row.name === toName);
+        affectedMarts.add(martId);
+
+        if (target) {
+          await client.query('UPDATE price_history SET item_id = $1 WHERE item_id = $2', [target.id, source.id]);
+          const latestPriceRow = [source, target]
+            .filter(row => Number(row.last_price) > 0)
+            .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
+          const totalUseCount = Number(source.use_count || 0) + Number(target.use_count || 0);
+          await client.query(
+            'UPDATE items SET last_price = $1, use_count = $2, updated_at = NOW() WHERE id = $3',
+            [latestPriceRow ? latestPriceRow.last_price : target.last_price, totalUseCount, target.id]
+          );
+          await client.query('DELETE FROM items WHERE id = $1', [source.id]);
+          mergedRegisteredItems += 1;
+        } else {
+          await client.query('UPDATE items SET name = $1, updated_at = NOW() WHERE id = $2', [toName, source.id]);
+          updatedRegisteredItems += 1;
+        }
+
+        await client.query(
+          `UPDATE cart_items
+           SET name = $1, updated_at = NOW()
+           WHERE mart_id = $2 AND name = $3`,
+          [toName, martId, fromName]
+        );
+      }
+
       await client.query('COMMIT');
-      return { scannedRecords: result.rowCount, updatedRecords, updatedItems };
+      return {
+        scannedRecords: result.rowCount,
+        updatedRecords,
+        updatedItems,
+        updatedRegisteredItems,
+        mergedRegisteredItems,
+        affectedMarts: Array.from(affectedMarts)
+      };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

@@ -1251,6 +1251,12 @@ body {
   min-width: 0;
 }
 
+.action-grid-3col .action-grid-spacer {
+  display: block;
+  min-height: 44px;
+  visibility: hidden;
+}
+
 .action-grid-2x2 .btn-link,
 .action-grid-2x2 .export-dropdown-wrapper,
 .action-grid-2x2 .btn-export-link,

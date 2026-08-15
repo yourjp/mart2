@@ -716,9 +716,13 @@ app.post('/api/db/records/rename-item', async (req, res) => {
     }
 
     const result = await dbHelper.renamePurchaseRecordItem(oldName, newName);
+    for (const martId of result.affectedMarts || []) {
+      const allItems = await dbHelper.getItems(martId, true);
+      writeItemsToMarkdownBackups(martId, allItems);
+    }
     return res.json({
       success: true,
-      message: `${result.updatedRecords}건의 구매내역에서 ${result.updatedItems}개 품목명을 수정했습니다.`,
+      message: `${result.updatedRecords}건의 구매내역에서 ${result.updatedItems}개 품목명, 등록 품목 ${result.updatedRegisteredItems + result.mergedRegisteredItems}개를 수정했습니다.`,
       ...result
     });
   } catch (err) {
