@@ -113,6 +113,7 @@ app.get('/api/db/sync', async (req, res) => {
     
     // Seed initial data if DB table is empty
     await seedItemsFromMarkdownIfEmpty(canonicalMart);
+    await dbHelper.syncItemsFromPurchaseRecords(canonicalMart, name => getRepresentativeItemName(canonicalMart, name));
 
     const items = await dbHelper.getItems(canonicalMart, false);
     const cart = await dbHelper.getCart(canonicalMart);
@@ -704,11 +705,12 @@ function formatWon(value) {
 function getRepresentativeItemName(martName, name) {
   const trimmedName = String(name || '').trim();
   if (martName === '이마트' || martName === 'Emart') {
-    const compactEmartName = trimmedName.replace(/\s+/g, '').toLowerCase();
+    const emartName = trimmedName.replace(/\(봉\)/g, '').trim();
+    const compactEmartName = emartName.replace(/\s+/g, '').toLowerCase();
     if (compactEmartName === '밀양청양고추' || compactEmartName === '청양고추') {
       return '청양고추';
     }
-    return trimmedName;
+    return emartName;
   }
   if (martName !== '코스트코' && martName !== 'Costco') return trimmedName;
 

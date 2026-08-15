@@ -461,6 +461,39 @@ module.exports = {
       .sort((a, b) => a.name.localeCompare(b.name, 'ko-KR', { numeric: true, sensitivity: 'base' }));
   },
 
+  async syncItemsFromPurchaseRecords(martId, normalizeItemName = name => name) {
+    await ensureDatabase();
+    const records = await this.getPurchaseRecords([martId]);
+    const itemMap = new Map();
+
+    for (const row of records) {
+      const items = Array.isArray(row.items_json) ? row.items_json : JSON.parse(row.items_json);
+      for (const item of items) {
+        const name = String(normalizeItemName(String((item && item.name) || '').trim()) || '').trim();
+        const price = Number(item && item.price);
+        if (!name || !Number.isFinite(price) || price <= 0) continue;
+        itemMap.set(name, price);
+      }
+    }
+
+    let checkedItems = 0;
+    let createdItems = 0;
+    for (const [name, price] of itemMap.entries()) {
+      checkedItems += 1;
+      const existing = await getItemWithHistory(martId, name);
+      if (existing) continue;
+      try {
+        await this.upsertItem(martId, name, price, true);
+        createdItems += 1;
+      } catch (error) {
+        if (error && error.code === '23505') continue;
+        throw error;
+      }
+    }
+
+    return { checkedItems, createdItems };
+  },
+
   async deletePurchaseRecord(id) {
     await ensureDatabase();
     return pool.query('DELETE FROM purchase_records WHERE id = $1', [id]);
