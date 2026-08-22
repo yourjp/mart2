@@ -797,6 +797,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .btn-secondary:active {
@@ -841,6 +843,8 @@ body {
   text-decoration: none;
   cursor: pointer;
   padding: 8px;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .btn-link:hover,
@@ -884,6 +888,8 @@ body {
   border: none;
   padding: 0 4px;
   width: 100%;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 /* Cart List & Items */
@@ -1290,8 +1296,10 @@ body {
   line-height: 1.25;
   height: 100%;
   white-space: normal;
-  padding-left: 12px;
-  padding-right: 12px;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  padding-left: 8px;
+  padding-right: 8px;
 }
 
 .export-dropdown-wrapper {
