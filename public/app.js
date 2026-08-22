@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.139 (26-08-15)';
+  const APP_VERSION = 'v1.3.148 (26-08-22)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -484,7 +484,7 @@
             <div class="cart-item-subtotal">${subtotal.toLocaleString()}원</div>
           </div>
           <div class="cart-item-meta">
-            <div class="cart-item-unit">단가: ${item.price.toLocaleString()}원</div>
+            <div class="cart-item-unit">단가: ${item.price.toLocaleString()}원${escapeHtml(getMeatUnitPriceLabel(item.name, item.price))}</div>
             <div class="cart-item-controls">
               <div class="qty-control">
                 <button type="button" class="btn-qty btn-minus" data-index="${index}" aria-label="수량 감소">-</button>
@@ -662,7 +662,8 @@
       btn.className = 'chip-btn';
       btn.title = '터치: 선택 / 길게 누르기: 삭제';
       
-      const priceText = item.lastPrice ? `<span class="chip-price">${item.lastPrice.toLocaleString()}원</span>` : '';
+      const unitLabel = getMeatUnitPriceLabel(item.name, item.lastPrice);
+      const priceText = item.lastPrice ? `<span class="chip-price">${item.lastPrice.toLocaleString()}원${escapeHtml(unitLabel)}</span>` : '';
       btn.innerHTML = `${escapeHtml(getDisplayItemName(item.name, item.lastPrice))} ${priceText} <span class="chip-history-btn" title="가격 이력 보기">📜</span>`;
 
       let pressTimer = null;
@@ -1668,6 +1669,7 @@
         const data = await res.json();
         if (res.ok && data && data.success) {
           showToast(`💾 계산결과가 서버 DB에 성공적으로 저장되었습니다!`);
+          alert(`💾 장바구니 저장 완료! (${totalAmount.toLocaleString()}원)`);
           loadDashboardMonthlyProgress();
           const recordsModal = document.getElementById('purchase-records-modal');
           if (recordsModal && !recordsModal.classList.contains('hidden')) {
@@ -1770,9 +1772,13 @@
 
   function openAllItemsModal() {
     const allItemsModal = document.getElementById('all-items-modal');
+    const allItemsModalTitle = document.getElementById('all-items-modal-title');
     const allItemsSearchInput = document.getElementById('all-items-search-input');
     if (!allItemsModal) return;
 
+    if (allItemsModalTitle) {
+      allItemsModalTitle.textContent = `🔍 ${currentMart} 등록 품목 & 단가 목록`;
+    }
     if (allItemsSearchInput) allItemsSearchInput.value = '';
     renderAllItemsList('');
     allItemsModal.classList.remove('hidden');
@@ -1810,7 +1816,10 @@
       const priceValue = (item.lastPrice && item.lastPrice > 0) ? String(item.lastPrice) : '';
       html += `
         <div class="all-item-row" style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; border:1px solid var(--border-color); border-radius:6px; padding:10px 12px;">
-          <span style="font-weight:700; color:var(--text-main); font-size:0.95rem;">${escapeHtml(getDisplayItemName(item.name, item.lastPrice))}</span>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-weight:700; color:var(--text-main); font-size:0.95rem;">${escapeHtml(getDisplayItemName(item.name, item.lastPrice))}</span>
+            ${item.lastPrice ? `<span style="font-size:0.8rem; color:#64748b;">${escapeHtml(getMeatUnitPriceLabel(item.name, item.lastPrice))}</span>` : ''}
+          </div>
           <div style="display:flex; align-items:center; gap:6px;">
             <input type="text" class="all-item-price-input" data-name="${escapeHtml(item.name)}" value="${priceValue ? Number(priceValue).toLocaleString() : ''}" placeholder="가격 입력" inputmode="numeric" aria-label="${escapeHtml(item.name)} 단가 입력" title="단가를 바로 입력하고 Enter 또는 포커스 이동으로 저장">
             <button type="button" class="btn-item-history-modal" data-id="${item.id || ''}" data-name="${escapeHtml(item.name)}" style="background:none; border:none; cursor:pointer; font-size:1.1rem; padding:2px;" title="가격 변동 이력 보기">📜</button>
@@ -2952,11 +2961,56 @@
   }
 
   function normalizeDisplayItemName(name) {
-    const trimmedName = String(name || '').trim();
+    let trimmedName = String(name || '').trim();
     if (trimmedName === '찬도복숭아') {
       return '천도복숭아';
     }
+    const meatWeight = parseMeatGramWeight(trimmedName);
+    if (meatWeight && !/\d+\s*g/i.test(trimmedName) && !/\d+\s*kg/i.test(trimmedName)) {
+      // Auto append 'g' to meat items with numbers (e.g. 등심 600 -> 등심 600g)
+      trimmedName = trimmedName.replace(/(\d+)/, '$1g');
+    }
     return trimmedName;
+  }
+
+  // Parse weight in grams from meat-related item names (e.g., 등심 600 -> 600g, 목심 1.2kg -> 1200g)
+  function parseMeatGramWeight(name) {
+    const str = String(name || '').trim();
+    const meatKeywords = ['등심', '목심', '삼겹살', '삼겹', '목살', '갈비', '안심', '부채살', '부채', '양지', '사태', '우삼겹', '차돌박이', '차돌', '소고기', '돼지고기', '한우', '돈육', '우육', '닭고기', '닭안심', '닭가슴살', '오리고기', '불고기', '스테이크'];
+    const isMeat = meatKeywords.some(kw => str.includes(kw));
+    if (!isMeat) return null;
+
+    // Match patterns like '600g', '600 g', '1.2kg', '1.2 kg', or standalone number like '600'
+    const kgMatch = str.match(/(\d+(?:\.\d+)?)\s*kg/i);
+    if (kgMatch) {
+      const kgVal = parseFloat(kgMatch[1]);
+      if (Number.isFinite(kgVal) && kgVal > 0) return Math.round(kgVal * 1000);
+    }
+
+    const gMatch = str.match(/(\d+)\s*g/i);
+    if (gMatch) {
+      const gVal = parseInt(gMatch[1], 10);
+      if (Number.isFinite(gVal) && gVal > 0) return gVal;
+    }
+
+    const numMatch = str.match(/(\d+)/);
+    if (numMatch) {
+      const numVal = parseInt(numMatch[1], 10);
+      if (Number.isFinite(numVal) && numVal >= 50 && numVal <= 10000) {
+        return numVal;
+      }
+    }
+
+    return null;
+  }
+
+  // Calculate 100g price label if item is meat with weight
+  function getMeatUnitPriceLabel(name, price) {
+    const weightGrams = parseMeatGramWeight(name);
+    const numPrice = Number(price);
+    if (!weightGrams || !Number.isFinite(numPrice) || numPrice <= 0) return '';
+    const pricePer100g = Math.round((numPrice / weightGrams) * 100);
+    return ` (100g당 ${pricePer100g.toLocaleString()}원)`;
   }
 
   function getRepresentativeItemName(name) {

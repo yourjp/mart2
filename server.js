@@ -71,6 +71,29 @@ function isKoreaSunday(date = new Date()) {
   }).format(date) === 'Sun';
 }
 
+function getKoreaTimeString(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).formatToParts(date);
+
+  const p = {};
+  parts.forEach(({ type, value }) => { p[type] = value; });
+  // hour12: false formatting in Intl can produce '24' for midnight in some Node versions, normalize it
+  const hour = p.hour === '24' ? '00' : p.hour;
+  return `${p.year}-${p.month}-${p.day} ${hour}:${p.minute}:${p.second}`;
+}
+
+function getKoreaMonthString(date = new Date()) {
+  return getKoreaTimeString(date).slice(0, 7);
+}
+
 function getDefaultBudgetForMart(martId) {
   if (martId === 'Costco' || martId === '코스트코') return 300000;
   if ((martId === 'Emart' || martId === '이마트') && isKoreaSunday()) return 50000;
@@ -301,14 +324,7 @@ app.post('/api/save-record', async (req, res) => {
       return res.status(400).json({ success: false, message: '영수증 품목 합계와 총액이 일치하지 않습니다.' });
     }
 
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    const generatedTimeStr = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    const generatedTimeStr = getKoreaTimeString();
     const timeStr = typeof requestedTimeStr === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(requestedTimeStr)
       ? requestedTimeStr
       : generatedTimeStr;
@@ -399,14 +415,14 @@ app.get('/api/db/records/item-names', async (req, res) => {
 });
 
 function getPreviousMonthValue(monthValue) {
-  const safeMonth = /^\d{4}-\d{2}$/.test(monthValue) ? monthValue : new Date().toISOString().slice(0, 7);
+  const safeMonth = /^\d{4}-\d{2}$/.test(monthValue) ? monthValue : getKoreaMonthString();
   const [year, month] = safeMonth.split('-').map(Number);
   const shifted = new Date(year, month - 2, 1);
   return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function getYearFromMonthValue(monthValue) {
-  const safeMonth = /^\d{4}-\d{2}$/.test(monthValue) ? monthValue : new Date().toISOString().slice(0, 7);
+  const safeMonth = /^\d{4}-\d{2}$/.test(monthValue) ? monthValue : getKoreaMonthString();
   return safeMonth.slice(0, 4);
 }
 
@@ -458,7 +474,7 @@ async function getNumberSetting(key, fallback) {
 
 app.get('/api/db/household-summary', async (req, res) => {
   try {
-    const month = /^\d{4}-\d{2}$/.test(req.query.month || '') ? req.query.month : new Date().toISOString().slice(0, 7);
+    const month = /^\d{4}-\d{2}$/.test(req.query.month || '') ? req.query.month : getKoreaMonthString();
     const previousMonth = getPreviousMonthValue(month);
     const year = getYearFromMonthValue(month);
 

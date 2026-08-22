@@ -27,7 +27,7 @@
         <button type="button" class="btn-budget-setting" id="btn-budget-setting" aria-label="예산 설정">
           ⚙️ 예산 설정
         </button>
-        <span id="app-version-badge" class="version-badge">v1.3.139 (26-08-15)</span>
+        <span id="app-version-badge" class="version-badge">v1.3.148 (26-08-22)</span>
         <span class="db-badge neon-postgres-badge" aria-label="Neon DB 연결 저장소">
           <img class="neon-logo-mark" src="assets/neon-db-logo.png" alt="" aria-hidden="true">
         </span>
@@ -165,7 +165,7 @@
         <!-- Action buttons inside Cart Section -->
         <div class="cart-actions">
           <div class="save-row" style="display:flex; gap:8px; align-items:stretch;">
-            <button type="button" id="btn-save-record" class="btn-secondary large-btn" style="flex:1; height:52px; margin:0;">
+            <button type="button" id="btn-save-record" class="btn-secondary large-btn" style="flex:1; height:52px; margin:0; font-size:0.88rem;">
               💾 장바구니 저장
             </button>
             <button type="button" id="btn-view-records" class="btn-secondary large-btn btn-outline" style="min-width:92px; width:auto; padding:0 10px; font-size:0.86rem; height:52px; margin:0;" title="구매내역">
@@ -186,21 +186,26 @@
               🧾 영수증
             </button>
             <input type="file" id="file-input-receipt" accept=".json" style="display:none;">
+            <div class="config-label-box">
+              🧾 영수증 변환
+            </div>
             <button type="button" id="btn-upload-receipt-rules" class="btn-link btn-upload-link btn-action-primary">
-              📤 설정 업로드
+              📤 업로드
             </button>
             <input type="file" id="file-input-receipt-rules" accept=".md,.txt" multiple style="display:none;">
             <button type="button" id="btn-download-receipt-rules" class="btn-link btn-action-download">
-              📥 설정 다운로드
+              📥 다운로드
             </button>
-            <span class="action-grid-spacer" aria-hidden="true"></span>
+            <div class="config-label-box">
+              🛒 품목 정보
+            </div>
             <button type="button" id="btn-upload-items" class="btn-link btn-upload-link btn-action-primary">
-              📤 품목 업로드
+              📤 업로드
             </button>
             <input type="file" id="file-input-items" accept=".md,.txt,.csv" style="display:none;">
             <div class="export-dropdown-wrapper">
               <button type="button" id="btn-export-data" class="btn-link btn-export-link btn-action-download">
-                📥 품목 다운로드
+                📥 다운로드
               </button>
               <div id="export-menu" class="export-menu hidden">
                 <button type="button" class="export-option" data-format="csv">📊 CSV 다운로드</button>
