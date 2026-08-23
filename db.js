@@ -397,6 +397,17 @@ module.exports = {
     await pool.query('DELETE FROM cart_items WHERE mart_id = $1', [martId]);
   },
 
+  async existsPurchaseRecord(martId, timeStr, totalAmount) {
+    await ensureDatabase();
+    const result = await pool.query(
+      `SELECT 1 FROM purchase_records 
+       WHERE mart_id = $1 AND time_str = $2 AND total_amount = $3 
+       LIMIT 1`,
+      [martId, timeStr, Number(totalAmount) || 0]
+    );
+    return result.rows.length > 0;
+  },
+
   async savePurchaseRecord(martId, timeStr, totalAmount, items) {
     await ensureDatabase();
     await pool.query(

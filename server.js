@@ -346,6 +346,16 @@ app.post('/api/save-record', async (req, res) => {
       ? 'Emart'
       : (martName === '코스트코' || martName === 'Costco') ? 'Costco' : 'Emart';
 
+    // Duplicate check: if record with same mart, timeStr, and totalAmount already exists
+    const exists = await dbHelper.existsPurchaseRecord(canonicalMart, timeStr, totalAmount);
+    if (exists) {
+      return res.status(409).json({
+        success: false,
+        isDuplicate: true,
+        message: `⚠️ 이미 DB에 저장되어 있는 영수증입니다. (${martName || '이마트'}, ${timeStr}, ${Number(totalAmount).toLocaleString()}원)`
+      });
+    }
+
     // 1. Save to Postgres DB table
     await dbHelper.savePurchaseRecord(canonicalMart, timeStr, totalAmount, items);
 

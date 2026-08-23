@@ -809,7 +809,6 @@ body {
   background: #ffffff;
   color: #0f172a;
   border: 2px solid #0f172a;
-  margin-top: 8px;
 }
 
 .btn-secondary.btn-outline:hover,
@@ -1855,6 +1854,23 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-top: 14px;
+  align-items: stretch;
+}
+
+.receipt-preview-actions .btn-secondary {
+  height: 48px !important;
+  min-height: 48px !important;
+  max-height: 48px !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  padding: 0 12px !important;
+  font-size: 1rem;
+  line-height: 44px;
+}
+
+.receipt-preview-actions .btn-secondary.btn-outline {
+  border: 2px solid #0f172a !important;
+  line-height: 44px;
 }
 
 .settings-files-list {

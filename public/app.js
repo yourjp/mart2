@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.151 (26-08-22)';
+  const APP_VERSION = 'v1.3.156 (26-08-23)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -2366,10 +2366,16 @@
           });
           const data = await res.json();
           if (!res.ok || !data || !data.success) {
-            showToast(data && data.message ? data.message : '영수증 저장에 실패했습니다.');
+            const errorMsg = data && data.message ? data.message : '영수증 저장에 실패했습니다.';
+            showToast(errorMsg);
+            if (data && data.isDuplicate) {
+              alert(errorMsg);
+              closePreview();
+            }
             return;
           }
           showToast(`'${fileName}' 영수증을 구매내역과 등록 품목에 저장했습니다.`);
+          alert(`🧾 영수증 저장 완료! (${record.martName || currentMart}, 총 ${Number(record.totalAmount || 0).toLocaleString()}원)`);
           if (isSameMart(record.martName, currentMart)) {
             await syncWithBackend(currentMart);
           } else {
