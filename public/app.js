@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.163 (26-11-22)';
+  const APP_VERSION = 'v1.3.164 (26-11-22)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -751,17 +751,118 @@
   }
 
   // --- Quick Selection Chips Rendering ---
+  let renderedQuickChipsKey = '';
+  let renderedSortedChips = [];
+  let quickChipsEventsBound = false;
+
+  function buildQuickChipsKey(mart, items) {
+    if (!Array.isArray(items) || items.length === 0) return `${mart}:0`;
+    let sig = `${mart}:${items.length}`;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      sig += `|${it.name}:${it.lastPrice || 0}:${it.useCount || 0}`;
+    }
+    return sig;
+  }
+
+  function bindQuickChipsEventsOnce() {
+    if (quickChipsEventsBound || !quickChipsList) return;
+    quickChipsEventsBound = true;
+
+    let pressTimer = null;
+    let isLongPress = false;
+    let activeChipBtn = null;
+
+    const cancelPress = () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+      activeChipBtn = null;
+    };
+
+    const startPress = (e) => {
+      const btn = e.target.closest('.chip-btn');
+      if (!btn || e.target.closest('.chip-history-btn')) return;
+      const idx = Number(btn.dataset.chipIndex);
+      const item = renderedSortedChips[idx];
+      if (!item) return;
+
+      cancelPress();
+      isLongPress = false;
+      activeChipBtn = btn;
+      pressTimer = setTimeout(async () => {
+        if (activeChipBtn !== btn) return;
+        isLongPress = true;
+        if (confirm(`[${currentMart}] '${item.name}' 품목을 저장 품목 목록에서 삭제하시겠습니까?`)) {
+          try {
+            const res = await fetch(`/api/db/item?mart=${encodeURIComponent(currentMart)}&name=${encodeURIComponent(item.name)}`, {
+              method: 'DELETE'
+            });
+            const data = await res.json();
+            if (!res.ok || !data || !data.success) {
+              showToast(data && data.message ? data.message : 'DB 품목 삭제에 실패했습니다.');
+              return;
+            }
+            savedItems = savedItems.filter(i => i.name.trim() !== item.name.trim());
+            saveLocalItemsCache(currentMart, savedItems);
+            render();
+            showToast(`'${item.name}' 품목이 DB에서 삭제되었습니다.`);
+          } catch (err) {
+            console.warn('DB item delete unavailable:', err);
+            showToast('DB 연결 오류로 품목을 삭제하지 못했습니다.');
+          }
+        }
+      }, 550);
+    };
+
+    quickChipsList.addEventListener('mousedown', startPress);
+    quickChipsList.addEventListener('touchstart', startPress, { passive: true });
+    quickChipsList.addEventListener('mouseup', cancelPress);
+    quickChipsList.addEventListener('mouseleave', cancelPress);
+    quickChipsList.addEventListener('touchend', cancelPress);
+    quickChipsList.addEventListener('touchmove', cancelPress, { passive: true });
+    quickChipsList.addEventListener('contextmenu', (e) => {
+      if (e.target.closest('.chip-btn')) e.preventDefault();
+    });
+
+    quickChipsList.addEventListener('click', (e) => {
+      const btn = e.target.closest('.chip-btn');
+      if (!btn) return;
+      e.preventDefault();
+      const idx = Number(btn.dataset.chipIndex);
+      const item = renderedSortedChips[idx];
+      if (!item) return;
+
+      if (e.target.closest('.chip-history-btn')) {
+        e.stopPropagation();
+        openPriceHistoryModal(item.id, item.name);
+        return;
+      }
+      if (isLongPress) {
+        isLongPress = false;
+        return;
+      }
+      selectAutocompleteItem(item);
+    });
+  }
+
   function renderQuickChips() {
     if (!quickChipsList) return;
-    quickChipsList.innerHTML = '';
+    bindQuickChipsEventsOnce();
+
+    const nextKey = buildQuickChipsKey(currentMart, savedItems);
+    if (nextKey === renderedQuickChipsKey) return;
+    renderedQuickChipsKey = nextKey;
 
     if (!savedItems || savedItems.length === 0) {
+      renderedSortedChips = [];
       quickChipsList.innerHTML = '<span class="chips-label" style="font-weight:normal;">등록된 품목이 없습니다.</span>';
       return;
     }
 
     // Sort items by Low Price Ascending (낮은 가격순), then Frequency (useCount desc), then Korean Order (가나다순)
-    const sortedItems = [...savedItems].sort((a, b) => {
+    renderedSortedChips = [...savedItems].sort((a, b) => {
       const aPrice = (typeof a.lastPrice === 'number' && a.lastPrice > 0) ? a.lastPrice : Infinity;
       const bPrice = (typeof b.lastPrice === 'number' && b.lastPrice > 0) ? b.lastPrice : Infinity;
       if (aPrice !== bPrice) return aPrice - bPrice;
@@ -770,80 +871,18 @@
       const bUse = b.useCount || 0;
       if (bUse !== aUse) return bUse - aUse;
 
-      return a.name.localeCompare(b.name, 'ko');
+      return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0);
     });
 
-    sortedItems.forEach(item => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'chip-btn';
-      btn.title = '터치: 선택 / 길게 누르기: 삭제';
-      
+    const chipsHtml = renderedSortedChips.map((item, idx) => {
       const unitLabel = getMeatUnitPriceLabel(item.name, item.lastPrice);
-      const priceText = item.lastPrice ? `<span class="chip-price">${item.lastPrice.toLocaleString()}원${escapeHtml(unitLabel)}</span>` : '';
-      btn.innerHTML = `${escapeHtml(getDisplayItemName(item.name, item.lastPrice))} ${priceText} <span class="chip-history-btn" title="가격 이력 보기">📜</span>`;
+      const priceText = item.lastPrice
+        ? `<span class="chip-price">${item.lastPrice.toLocaleString()}원${escapeHtml(unitLabel)}</span>`
+        : '';
+      return `<button type="button" class="chip-btn" data-chip-index="${idx}" title="터치: 선택 / 길게 누르기: 삭제">${escapeHtml(getDisplayItemName(item.name, item.lastPrice))} ${priceText} <span class="chip-history-btn" title="가격 이력 보기">📜</span></button>`;
+    }).join('');
 
-      let pressTimer = null;
-      let isLongPress = false;
-
-      const startPress = () => {
-        isLongPress = false;
-        pressTimer = setTimeout(async () => {
-          isLongPress = true;
-          if (confirm(`[${currentMart}] '${item.name}' 품목을 저장 품목 목록에서 삭제하시겠습니까?`)) {
-            try {
-              const res = await fetch(`/api/db/item?mart=${encodeURIComponent(currentMart)}&name=${encodeURIComponent(item.name)}`, {
-                method: 'DELETE'
-              });
-              const data = await res.json();
-              if (!res.ok || !data || !data.success) {
-                showToast(data && data.message ? data.message : 'DB 품목 삭제에 실패했습니다.');
-                return;
-              }
-              savedItems = savedItems.filter(i => i.name.trim() !== item.name.trim());
-              saveLocalItemsCache(currentMart, savedItems);
-              render();
-              showToast(`'${item.name}' 품목이 DB에서 삭제되었습니다.`);
-            } catch (err) {
-              console.warn('DB item delete unavailable:', err);
-              showToast('DB 연결 오류로 품목을 삭제하지 못했습니다.');
-            }
-          }
-        }, 550);
-      };
-
-      const cancelPress = () => {
-        if (pressTimer) {
-          clearTimeout(pressTimer);
-          pressTimer = null;
-        }
-      };
-
-      btn.addEventListener('mousedown', startPress);
-      btn.addEventListener('touchstart', startPress, { passive: true });
-
-      btn.addEventListener('mouseup', cancelPress);
-      btn.addEventListener('mouseleave', cancelPress);
-      btn.addEventListener('touchend', cancelPress);
-      btn.addEventListener('touchmove', cancelPress);
-      btn.addEventListener('contextmenu', (e) => e.preventDefault());
-
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (e.target.closest('.chip-history-btn')) {
-          e.stopPropagation();
-          openPriceHistoryModal(item.id, item.name);
-          return;
-        }
-        if (isLongPress) {
-          isLongPress = false;
-          return;
-        }
-        selectAutocompleteItem(item);
-      });
-
-      quickChipsList.appendChild(btn);
-    });
+    quickChipsList.innerHTML = chipsHtml;
   }
 
   // --- Autocomplete Logic (Strict Chosung Boundary Matching) ---

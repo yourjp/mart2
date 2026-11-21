@@ -128,19 +128,26 @@ async function seedItemsFromMarkdownIfEmpty(martId) {
 // DB Sync API Endpoints
 // ----------------------------------------------------
 
+const syncedMartsOnBoot = new Set();
+
 // GET /api/db/sync - Read complete state for a mart (items, cart, budget)
 app.get('/api/db/sync', async (req, res) => {
   try {
     const martName = req.query.mart || 'Emart';
     const canonicalMart = toCanonicalMartId(martName);
     
-    // Seed initial data if DB table is empty
-    await seedItemsFromMarkdownIfEmpty(canonicalMart);
-    await dbHelper.syncItemsFromPurchaseRecords(canonicalMart, name => getRepresentativeItemName(canonicalMart, name));
+    // Seed and reconcile once per mart per server lifecycle to avoid N+1 latency on every sync
+    if (!syncedMartsOnBoot.has(canonicalMart)) {
+      await seedItemsFromMarkdownIfEmpty(canonicalMart);
+      await dbHelper.syncItemsFromPurchaseRecords(canonicalMart, name => getRepresentativeItemName(canonicalMart, name));
+      syncedMartsOnBoot.add(canonicalMart);
+    }
 
-    const items = await dbHelper.getItems(canonicalMart, false);
-    const cart = await dbHelper.getCart(canonicalMart);
-    const budget = await dbHelper.ensureDefaultBudget(canonicalMart, getDefaultBudgetForMart(canonicalMart));
+    const [items, cart, budget] = await Promise.all([
+      dbHelper.getItems(canonicalMart, false),
+      dbHelper.getCart(canonicalMart),
+      dbHelper.ensureDefaultBudget(canonicalMart, getDefaultBudgetForMart(canonicalMart))
+    ]);
 
     return res.json({
       success: true,

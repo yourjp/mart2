@@ -7,6 +7,14 @@
 
 ## 🏷️ 버전별 변경 이력 (Version History)
 
+### ⚡ v1.3.164 (26-11-22) - 등록/추천 품목 터치 선택 리스트 표시 속도 대폭 개선
+- **백엔드 동기화(`/api/db/sync`) DB 왕복 최적화**:
+  - `db.js` `syncItemsFromPurchaseRecords()`에서 품목 수만큼 반복되던 N+1 조회(`getItemWithHistory` 루프)를 단일 `SELECT name FROM items` 일괄 조회로 개선.
+  - `server.js` `/api/db/sync`에서 초기 시딩/구매내역 정합성 검사를 마트별 서버 수명 주기 최초 1회로 제한하고, `items`·`cart`·`budget` 조회를 `Promise.all` 병렬 실행으로 전환해 응답 지연 최소화.
+- **프론트엔드(`renderQuickChips`) 렌더링 최적화**:
+  - 마트·품목 시그니처 비교(`buildQuickChipsKey`)를 통해 품목 변화가 없을 때 불필요한 칩 리스트 재렌더링을 생략.
+  - 수십~수백 개의 칩 버튼마다 개별 부착하던 8종 이벤트 리스너를 `quickChipsList` 단일 이벤트 위임(`bindQuickChipsEventsOnce`)으로 전환하고, 단일 `innerHTML` 일괄 렌더링으로 DOM 리플로우를 1회로 축소.
+
 ### 🏷️ v1.3.163 (26-11-22) - "장바구니 저장" 버튼 명칭을 "저장"으로 간소화
 - **UI 명칭 개선**:
   - 장바구니 하단 저장 버튼 문구를 `💾 장바구니 저장`에서 `💾 저장`으로 간결하게 변경.

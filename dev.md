@@ -2564,7 +2564,7 @@ README에는 다음 내용을 포함한다.
 
 ## 25. 버전 및 수정 날짜 표시 규칙 (Version & Modified Date Policy)
 
-- 앱 코드를 수정할 때마다 `vX.X.X (YY-MM-DD)` 형식(예: `v1.3.163 (26-11-22)`)으로 버전을 올리고 수정한 날짜를 함께 표기한다.
+- 앱 코드를 수정할 때마다 `vX.X.X (YY-MM-DD)` 형식(예: `v1.3.164 (26-11-22)`)으로 버전을 올리고 수정한 날짜를 함께 표기한다.
 - 전광판 우측 상단(`#app-version-badge`), `public/app.js`(`APP_VERSION`), `package.json`, `package-lock.json`, `history.md`에 항상 동기화하여 시각적으로 보여준다.
 
 
@@ -2844,4 +2844,9 @@ README에는 다음 내용을 포함한다.
 - 장바구니 헤더 비우기 버튼은 `비우기`로 표기한다. (`전체 비우기` → `비우기`)
 - 하단 영수증 정제 규칙 업로드/다운로드 라벨은 `🧾 영수증 변환`으로 표기한다. (`🧾 영수증 변환 MD` → `🧾 영수증 변환`)
 - 장바구니 하단 저장 버튼은 `💾 저장`으로 표기한다. (`💾 장바구니 저장` → `💾 저장`)
+
+## 54. 등록/추천 품목 터치 선택 리스트 표시 속도 최적화 규칙 (v1.3.164)
+
+- **DB 동기화 최적화**: `/api/db/sync`는 마트별 초기 시딩 및 구매내역 품목 보정(`syncItemsFromPurchaseRecords`)을 서버 수명 주기당 최초 1회(`syncedMartsOnBoot`)만 수행하며, `items`·`cart`·`budget` 조회를 `Promise.all`로 병렬 처리한다. `syncItemsFromPurchaseRecords` 내부에서도 N+1 `getItemWithHistory` 루프 대신 `SELECT name FROM items` 단일 쿼리로 기존 품목을 판별한다.
+- **UI 렌더링 최적화**: `renderQuickChips()`는 `buildQuickChipsKey()`로 이전 렌더링과 동일한 품목 상태일 경우 DOM 재작성을 건너뛰며, `quickChipsList` 단일 이벤트 위임(`bindQuickChipsEventsOnce`)과 1회 일괄 `innerHTML` 갱신을 통해 빠른 표시 속도를 유지한다.
 

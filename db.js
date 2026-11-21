@@ -487,14 +487,20 @@ module.exports = {
       }
     }
 
+    const existingResult = await pool.query(
+      'SELECT name FROM items WHERE mart_id = $1',
+      [martId]
+    );
+    const existingNames = new Set(existingResult.rows.map(row => String(row.name || '').trim()));
+
     let checkedItems = 0;
     let createdItems = 0;
     for (const [name, price] of itemMap.entries()) {
       checkedItems += 1;
-      const existing = await getItemWithHistory(martId, name);
-      if (existing) continue;
+      if (existingNames.has(name)) continue;
       try {
         await this.upsertItem(martId, name, price, true);
+        existingNames.add(name);
         createdItems += 1;
       } catch (error) {
         if (error && error.code === '23505') continue;
