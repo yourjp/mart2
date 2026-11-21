@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.156 (26-08-23)';
+  const APP_VERSION = 'v1.3.160 (26-11-22)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -212,6 +212,7 @@
   const cartEmptyMsg = document.getElementById('cart-empty-msg');
   const cartList = document.getElementById('cart-list');
   const btnClearCart = document.getElementById('btn-clear-cart');
+  const btnLoadLastRecord = document.getElementById('btn-load-last-record');
   const btnSaveRecord = document.getElementById('btn-save-record');
   const btnResetSaved = document.getElementById('btn-reset-saved');
   const btnUploadItems = document.getElementById('btn-upload-items');
@@ -251,9 +252,65 @@
     });
   }
 
-  // --- LocalStorage Items Caching Helpers ---
+  // --- LocalStorage Items & Cart Caching Helpers ---
+  const cartCacheByMart = {};
+  const pendingCartSaveByMart = {};
+  const lastCartSaveFailedByMart = {};
+
+  function getCanonicalMartKey(mart) {
+    return (mart === '코스트코' || mart === 'Costco') ? 'Costco' : 'Emart';
+  }
+
   function getLocalStorageItemsKey(mart) {
     return 'mart_saved_items_' + (mart || 'Emart');
+  }
+
+  function getLocalStorageCartKey(mart) {
+    return 'mart_cart_' + getCanonicalMartKey(mart);
+  }
+
+  function normalizeCartItems(items) {
+    if (!Array.isArray(items)) return [];
+    return items.map((item, idx) => ({
+      id: item && item.id ? item.id : `item-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+      name: String((item && item.name) || ''),
+      price: Number(item && item.price) || 0,
+      quantity: Number(item && item.quantity) || 1,
+      isAutoName: Boolean(item && item.isAutoName),
+      priceChange: (item && item.priceChange) || null
+    }));
+  }
+
+  function loadLocalCartCache(mart) {
+    const canonical = getCanonicalMartKey(mart);
+    if (Array.isArray(cartCacheByMart[canonical])) {
+      return cartCacheByMart[canonical].map(item => ({ ...item }));
+    }
+    try {
+      const raw = localStorage.getItem(getLocalStorageCartKey(canonical));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const normalized = normalizeCartItems(parsed);
+          cartCacheByMart[canonical] = normalized;
+          return normalized.map(item => ({ ...item }));
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load local cart cache:', e);
+    }
+    return null;
+  }
+
+  function saveLocalCartCache(mart, items) {
+    const canonical = getCanonicalMartKey(mart);
+    const normalized = normalizeCartItems(items);
+    cartCacheByMart[canonical] = normalized;
+    try {
+      localStorage.setItem(getLocalStorageCartKey(canonical), JSON.stringify(normalized));
+    } catch (e) {
+      console.warn('Failed to save local cart cache:', e);
+    }
   }
 
   function loadLocalItemsCache(mart) {
@@ -285,7 +342,8 @@
     document.body.dataset.mart = mart;
 
     budget = getDefaultBudgetForMart(mart);
-    cart = [];
+    const cachedCart = loadLocalCartCache(mart);
+    cart = Array.isArray(cachedCart) ? cachedCart : [];
     
     // Page reload/initial load: Bypass local cache, fetch fresh data directly from DB
     // Tab switching in same session (isInitialPageLoad === false): Use local cache for instant render
@@ -307,18 +365,52 @@
 
   // --- Sync State with Backend Postgres DB ---
   async function syncWithBackend(mart) {
+    const canonical = getCanonicalMartKey(mart);
     try {
+      if (pendingCartSaveByMart[canonical]) {
+        try {
+          await pendingCartSaveByMart[canonical];
+        } catch (e) {}
+      }
+
       const res = await fetch(`/api/db/sync?mart=${encodeURIComponent(mart)}`);
       const data = await res.json();
+      if (getCanonicalMartKey(currentMart) !== canonical) return;
+
       if (data && data.success) {
         budget = data.budget;
         savedItems = Array.isArray(data.items) ? data.items : [];
         saveLocalItemsCache(mart, savedItems);
-        if (Array.isArray(data.cart)) cart = data.cart;
+
+        if (Array.isArray(data.cart)) {
+          if (lastCartSaveFailedByMart[canonical]) {
+            saveState(true);
+          } else {
+            const existingByKey = new Map();
+            cart.forEach(item => {
+              const key = `${item.name}__${Number(item.price) || 0}`;
+              if (!existingByKey.has(key)) existingByKey.set(key, item);
+            });
+            cart = normalizeCartItems(data.cart).map(dbItem => {
+              const key = `${dbItem.name}__${Number(dbItem.price) || 0}`;
+              const localMatch = existingByKey.get(key);
+              if (!localMatch) return dbItem;
+              return {
+                ...dbItem,
+                id: localMatch.id || dbItem.id,
+                isAutoName: localMatch.isAutoName || dbItem.isAutoName,
+                priceChange: localMatch.priceChange || dbItem.priceChange
+              };
+            });
+            saveLocalCartCache(mart, cart);
+          }
+        }
+        calculateAutoNameIndex();
         isInitialPageLoad = false;
         render();
       }
     } catch (err) {
+      if (getCanonicalMartKey(currentMart) !== canonical) return;
       console.warn('Backend DB sync unavailable:', err);
       const cached = loadLocalItemsCache(mart);
       if (cached && cached.length > 0) {
@@ -326,23 +418,48 @@
       } else {
         savedItems = [];
       }
-      cart = [];
+      const cachedCart = loadLocalCartCache(mart);
+      if (Array.isArray(cachedCart)) {
+        cart = cachedCart;
+      }
+      calculateAutoNameIndex();
       isInitialPageLoad = false;
       render();
     }
   }
 
   function saveState(pushToDb = true) {
+    const targetMart = currentMart;
+    const canonical = getCanonicalMartKey(targetMart);
+    saveLocalCartCache(targetMart, cart);
     if (!pushToDb) return;
-    fetch('/api/db/cart', {
+
+    const cartSnapshot = cart.map(item => ({ ...item }));
+    const savePromise = fetch('/api/db/cart', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ martName: currentMart, cart })
-    }).catch(err => console.warn('DB cart save unavailable:', err));
+      body: JSON.stringify({ martName: targetMart, cart: cartSnapshot })
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Cart save HTTP ' + res.status);
+        lastCartSaveFailedByMart[canonical] = false;
+      })
+      .catch(err => {
+        lastCartSaveFailedByMart[canonical] = true;
+        console.warn('DB cart save unavailable:', err);
+      })
+      .finally(() => {
+        if (pendingCartSaveByMart[canonical] === savePromise) {
+          delete pendingCartSaveByMart[canonical];
+        }
+      });
+
+    pendingCartSaveByMart[canonical] = savePromise;
+
     fetch('/api/db/budget', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ martName: currentMart, amount: budget })
+      body: JSON.stringify({ martName: targetMart, amount: budget })
     }).catch(err => console.warn('DB budget save unavailable:', err));
   }
 
@@ -879,6 +996,13 @@
     }
   }
 
+  function focusItemNameIfEmpty() {
+    if (!itemNameInput || !itemPriceInput) return;
+    if (!itemNameInput.value.trim() && !itemPriceInput.value.trim()) {
+      itemNameInput.focus();
+    }
+  }
+
   // --- Add Item Handler ---
   function handleAddItem(e) {
     if (e) e.preventDefault();
@@ -921,7 +1045,11 @@
 
     if (!parsedPrice || parsedPrice <= 0) {
       showToast('유효한 가격을 입력해 주세요.');
-      itemPriceInput.focus();
+      if (!rawName && !rawPrice) {
+        focusItemNameIfEmpty();
+      } else {
+        itemPriceInput.focus();
+      }
       return;
     }
 
@@ -1003,19 +1131,20 @@
       } catch (e) {}
     }
 
-    // Reset Form and focus price input
+    // Reset Form and focus item name input when both fields are empty
     itemNameInput.value = '';
     itemPriceInput.value = '';
     priceHelper.classList.add('hidden');
     autocompleteList.classList.add('hidden');
-    itemPriceInput.focus();
+    focusItemNameIfEmpty();
   }
 
   // --- Event Listeners Initialization ---
   function initEvents() {
     // Store Tab switching
     const handleTabClick = (targetMart) => {
-      const canonicalTarget = (targetMart === '이마트' || targetMart === 'Emart') ? 'Emart' : 'Costco';
+      const canonicalTarget = getCanonicalMartKey(targetMart);
+      if (canonicalTarget === getCanonicalMartKey(currentMart)) return;
       saveState();
       loadState(canonicalTarget);
       render();
@@ -1024,6 +1153,7 @@
       if (itemPriceInput) itemPriceInput.value = '';
       if (priceHelper) priceHelper.classList.add('hidden');
       if (autocompleteList) autocompleteList.classList.add('hidden');
+      focusItemNameIfEmpty();
     };
 
     const martTabsNav = document.querySelector('.mart-tabs');
@@ -1034,20 +1164,6 @@
           e.preventDefault();
           handleTabClick(btn.dataset.tab);
         }
-      });
-    }
-
-    if (tabEmart) {
-      tabEmart.addEventListener('click', (e) => {
-        e.preventDefault();
-        handleTabClick('Emart');
-      });
-    }
-
-    if (tabCostco) {
-      tabCostco.addEventListener('click', (e) => {
-        e.preventDefault();
-        handleTabClick('Costco');
       });
     }
 
@@ -1246,6 +1362,42 @@
         showToast('장바구니를 비웠습니다.');
       }
     });
+
+    // Load Most Recent Saved Cart Record
+    if (btnLoadLastRecord) {
+      btnLoadLastRecord.addEventListener('click', async () => {
+        btnLoadLastRecord.disabled = true;
+        try {
+          const res = await fetch(`/api/db/records?mart=${encodeURIComponent(currentMart)}`);
+          const data = await res.json();
+          if (!data || !data.success || !Array.isArray(data.records) || data.records.length === 0) {
+            showToast(`[${getDisplayMartName(currentMart)}] 저장된 장바구니 내역이 없습니다.`);
+            return;
+          }
+          const latestRec = data.records[0];
+          const recItems = parseRecordItems(latestRec);
+          if (recItems.length === 0) {
+            showToast('불러올 품목이 없습니다.');
+            return;
+          }
+          const replaceMsg = cart.length > 0 ? '\n(현재 담긴 장바구니는 교체됩니다.)' : '';
+          const confirmed = confirm(
+            `최근 저장된 [${getDisplayMartName(currentMart)}] 장바구니를 불러올까요?\n` +
+            `• 일시: ${latestRec.time_str || '-'}\n` +
+            `• 품목: ${recItems.length}개 / ${Number(latestRec.total_amount || 0).toLocaleString()}원` +
+            replaceMsg
+          );
+          if (confirmed) {
+            loadRecordIntoCart(latestRec, { skipConfirm: true });
+          }
+        } catch (err) {
+          console.error('Load last record error:', err);
+          showToast('⚠️ 저장된 장바구니를 불러오지 못했습니다.');
+        } finally {
+          btnLoadLastRecord.disabled = false;
+        }
+      });
+    }
 
     // Reset Saved Items (Disabled/Hidden)
     if (btnResetSaved) {
@@ -2089,8 +2241,18 @@
       recordsContent.innerHTML = html;
       bindRecordsMonthFilter(recordsContent, mode, rankBy, data.records);
 
-      // Event delegation for deleting a record
+      // Event delegation for loading or deleting a record
       recordsContent.onclick = async (e) => {
+        const btnLoad = e.target.closest('.btn-load-record');
+        if (btnLoad) {
+          const recId = btnLoad.dataset.id;
+          const targetRec = data.records.find(r => String(r.id) === String(recId));
+          if (targetRec && loadRecordIntoCart(targetRec)) {
+            recordsModal.classList.add('hidden');
+          }
+          return;
+        }
+
         const btnDelete = e.target.closest('.btn-delete-record');
         if (btnDelete) {
           const recId = btnDelete.dataset.id;
@@ -2289,34 +2451,89 @@
     `;
   }
 
-  function renderPurchaseRecordCard(rec) {
+  function parseRecordItems(rec) {
     let itemsArr = [];
     try {
       itemsArr = typeof rec.items_json === 'string' ? JSON.parse(rec.items_json) : rec.items_json;
     } catch (e) {
       itemsArr = [];
     }
-    itemsArr = Array.isArray(itemsArr)
-      ? [...itemsArr].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ko-KR'))
-      : [];
+    return Array.isArray(itemsArr) ? itemsArr : [];
+  }
 
-    let formattedTime = rec.time_str || '';
-    if (formattedTime.length >= 16) {
-      const parts = formattedTime.split(' ');
-      if (parts.length >= 2) {
-        const datePart = parts[0];
-        const timePart = parts[1].substring(0, 5);
-        formattedTime = `${datePart} &nbsp;&nbsp;${timePart}`;
-      }
+  function loadRecordIntoCart(rec, options = {}) {
+    const rawItems = parseRecordItems(rec);
+    if (rawItems.length === 0) {
+      showToast('불러올 품목이 없습니다.');
+      return false;
+    }
+
+    const targetMart = getCanonicalMartKey(rec.mart_id || currentMart);
+    const currentCanonical = getCanonicalMartKey(currentMart);
+    const existingTargetCart = targetMart === currentCanonical
+      ? cart
+      : (loadLocalCartCache(targetMart) || []);
+
+    if (!options.skipConfirm) {
+      const replaceMsg = existingTargetCart.length > 0 ? '\n(기존 장바구니 항목은 교체됩니다.)' : '';
+      const confirmed = confirm(
+        `[${getDisplayMartName(targetMart)}] 저장된 장바구니를 불러올까요?\n` +
+        `• 일시: ${rec.time_str || '-'}\n` +
+        `• 품목: ${rawItems.length}개 / ${Number(rec.total_amount || 0).toLocaleString()}원` +
+        replaceMsg
+      );
+      if (!confirmed) return false;
+    }
+
+    if (targetMart !== currentCanonical) {
+      saveState();
+      currentMart = targetMart;
+      document.body.dataset.mart = targetMart;
+      budget = getDefaultBudgetForMart(targetMart);
+      const cachedItems = loadLocalItemsCache(targetMart);
+      savedItems = Array.isArray(cachedItems) ? cachedItems : [];
+    }
+
+    cart = normalizeCartItems(rawItems.map(item => ({
+      name: String(item.name || '').trim(),
+      price: Number(item.price) || 0,
+      quantity: Number(item.quantity) || 1,
+      isAutoName: false,
+      priceChange: null
+    })));
+
+    calculateAutoNameIndex();
+    saveState(true);
+    render();
+    renderDashboardMonthlyProgress();
+    if (targetMart !== currentCanonical) {
+      syncWithBackend(targetMart);
+    }
+    showToast(`📥 [${getDisplayMartName(targetMart)}] 장바구니(${cart.length}개)를 불러왔습니다.`);
+    return true;
+  }
+
+  function renderPurchaseRecordCard(rec) {
+    const itemsArr = [...parseRecordItems(rec)].sort((a, b) =>
+      String(a.name || '').localeCompare(String(b.name || ''), 'ko-KR')
+    );
+
+    let formattedTime = String(rec.time_str || '').trim();
+    const dateMatch = formattedTime.match(/^\d{4}-(\d{2}-\d{2})/);
+    if (dateMatch) {
+      formattedTime = dateMatch[1];
+    } else if (/^\d{2}-\d{2}/.test(formattedTime)) {
+      formattedTime = formattedTime.substring(0, 5);
     }
 
     return `
       <div class="record-card" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:8px; padding:12px; margin-bottom:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:6px; margin-bottom:8px;">
-          <span style="font-weight:700; color:var(--text-main); font-size:0.95rem;">${formattedTime}</span>
+          <span style="font-weight:700; color:var(--text-main); font-size:0.95rem;">${escapeHtml(formattedTime)}</span>
           <div style="display:flex; align-items:center; gap:8px;">
             <span class="record-mart-badge">${escapeHtml(getDisplayMartName(rec.mart_id))}</span>
             <span style="font-weight:800; color:#dc2626; font-size:1.05rem;">${Number(rec.total_amount).toLocaleString()}원</span>
+            <button type="button" class="btn-load-record" data-id="${rec.id}" title="이 내역을 장바구니로 다시 불러오기" aria-label="불러오기">📥 불러오기</button>
             <button type="button" class="btn-delete-record" data-id="${rec.id}" data-time="${escapeHtml(rec.time_str || '')}" data-amount="${Number(rec.total_amount || 0)}" style="background:none; border:none; color:#94a3b8; font-size:1rem; cursor:pointer; padding:2px 4px;" title="이 구매내역 삭제" aria-label="삭제">🗑️</button>
           </div>
         </div>
@@ -3068,6 +3285,7 @@
     initEvents();
     render();
     loadDashboardMonthlyProgress();
+    focusItemNameIfEmpty();
   }
 
   // Run on DOM Ready

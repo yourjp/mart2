@@ -829,7 +829,42 @@ body {
   font-weight: 700;
   cursor: pointer;
   padding: 4px 8px;
+}
 
+.btn-text-load {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #2563eb;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 999px;
+  transition: all 0.2s ease;
+  word-break: keep-all;
+}
+
+.btn-text-load:hover,
+.btn-text-load:active {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.btn-load-record {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #2563eb;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 6px;
+  word-break: keep-all;
+}
+
+.btn-load-record:hover,
+.btn-load-record:active {
+  background: #dbeafe;
 }
 
 .btn-link {
