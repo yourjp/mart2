@@ -2564,7 +2564,7 @@ README에는 다음 내용을 포함한다.
 
 ## 25. 버전 및 수정 날짜 표시 규칙 (Version & Modified Date Policy)
 
-- 앱 코드를 수정할 때마다 `vX.X.X (YY-MM-DD)` 형식(예: `v1.3.166 (26-11-22)`)으로 버전을 올리고 수정한 날짜를 함께 표기한다.
+- 앱 코드를 수정할 때마다 `vX.X.X (YY-MM-DD)` 형식(예: `v1.3.170 (26-11-22)`)으로 버전을 올리고 수정한 날짜를 함께 표기한다.
 - 전광판 우측 상단(`#app-version-badge`), `public/app.js`(`APP_VERSION`), `package.json`, `package-lock.json`, `history.md`에 항상 동기화하여 시각적으로 보여준다.
 
 
@@ -2583,7 +2583,7 @@ README에는 다음 내용을 포함한다.
 
 - 전광판(`dashboard-board`) 영역배치:
   - **좌측 상단**: `⚙️ 예산 설정` 버튼 (`.btn-budget-setting`)
-  - **우측 상단**: 버전 표시 배지 (`#app-version-badge`, 현재 `v1.3.166 (26-11-22)`)
+  - **우측 상단**: 버전 표시 배지 (`#app-version-badge`, 현재 `v1.3.170 (26-11-22)`)
   - **좌측 하단**: `💡 스마트 추천` 버튼 (`.btn-smart-recommendation`)
   - **우측 하단**: Neon DB 로고 배지 (`.db-badge.neon-postgres-badge`)
 - `현재 총합 0원` 표시는 가로 한 줄(Single Line Flex)로 정렬된다.
@@ -2854,4 +2854,13 @@ README에는 다음 내용을 포함한다.
 
 - 상단 마트 선택 탭과 중복되는 전광판 타이틀(`#dashboard-mart-label`)을 제거하여 전광판 높이를 줄이고, 휴무일 안내(`.mart-holiday-note`)가 상단 좌우 배지와 겹치지 않도록 상하 여백을 조정한다.
 - 마트 선택 탭(`.tab-btn`)의 `min-height`를 `40px`(`padding: 7px 14px`), 전광판(`.dashboard-board`) 패딩을 `14px 16px 12px`, 총액(`.total-value`)을 `1.95rem`, 상태 배지(`.status-display`) 패딩을 `4px 12px`로 컴팩트하게 유지한다.
+
+## 56. 전광판 영업시간 단독 표기 규칙 (v1.3.167)
+
+- 전광판 `#mart-holiday-note` 영역에는 휴무일 안내 문구를 생략하고 마트별 영업시간(`영업시간 10:00~23:00` / `영업시간 10:00~22:00`)만 표기한다. (상단 탭의 둘째·넷째 일요일 `이마트 (하남)` / `코스트코(휴무)` 표기는 유지)
+
+## 57. 마트 탭 전용 이니셜 아이콘 규칙 (v1.3.168 ~ v1.3.170)
+
+- 상단 이마트 탭(`#tab-emart`) 아이콘은 이마트 시그니처 옐로우(`#FFB81C`, 외곽선 `#B45309`) 컬러의 굵은 E 자 인라인 SVG(`.emart-e-icon`)로 표시한다.
+- 상단 코스트코 탭(`#tab-costco`) 아이콘은 코스트코 시그니처 레드(`#E31837`) 컬러의 오른쪽으로 기울어진(`skewX(-12)`) 굵고 둥근 C 자 + 흰색 외곽선 인라인 SVG(`.costco-c-icon`)로 표시한다.
 

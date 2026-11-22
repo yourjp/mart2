@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.166 (26-11-22)';
+  const APP_VERSION = 'v1.3.170 (26-11-22)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -3105,19 +3105,9 @@
     return getSecondAndFourthSundays(date).dates.includes(dayOfMonth);
   }
 
-  function getMartHolidayText(martName, date = new Date()) {
-    const { month, dates } = getSecondAndFourthSundays(date);
-    if (dates.length < 2) return '';
+  function getMartHolidayText(martName) {
     const businessHours = MART_BUSINESS_HOURS[martName] || '';
-    const hoursText = businessHours ? ` · 영업시간 ${businessHours}` : '';
-    const upcomingHoliday = getUpcomingSecondOrFourthSunday(date);
-    if (upcomingHoliday && upcomingHoliday.daysUntil <= 2) {
-      const relativeText = upcomingHoliday.daysUntil === 0
-        ? (martName === '이마트' ? '하남점 영업' : '오늘 휴무')
-        : upcomingHoliday.daysUntil === 1 ? '내일 휴무' : '모레 휴무';
-      return `${relativeText}${hoursText}`;
-    }
-    return `${month}월 ${dates[0]}일, ${dates[1]}일 ${martName} 휴무일${hoursText}`;
+    return businessHours ? `영업시간 ${businessHours}` : '';
   }
 
   function getUpcomingSecondOrFourthSunday(date = new Date()) {

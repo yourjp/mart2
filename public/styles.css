@@ -113,6 +113,20 @@ body {
   pointer-events: none;
 }
 
+.tab-icon-emart,
+.tab-icon-costco {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emart-e-icon,
+.costco-c-icon {
+  display: block;
+  width: 22px;
+  height: 20px;
+}
+
 .tab-btn.active {
   background: var(--card-bg);
   color: var(--theme-primary);
