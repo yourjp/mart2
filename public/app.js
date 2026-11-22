@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.172 (26-11-22)';
+  const APP_VERSION = 'v1.3.175';
   const MART_BUSINESS_HOURS = {
     '이마트': '10시~23시',
     '코스트코': '10시~22시'
@@ -544,7 +544,7 @@
     if (totalAmount > budget) {
       const over = totalAmount - budget;
       dashboardBoard.classList.add('over-budget');
-      statusBadgeEl.textContent = '예산 초과';
+      statusBadgeEl.textContent = '초과';
       statusValueEl.textContent = `${over.toLocaleString()}원 초과`;
       
       withinBudgetBanner.classList.add('hidden');
@@ -552,7 +552,7 @@
     } else {
       const remaining = budget - totalAmount;
       dashboardBoard.classList.remove('over-budget');
-      statusBadgeEl.textContent = '예산 충족';
+      statusBadgeEl.textContent = '충족';
       statusValueEl.textContent = `${remaining.toLocaleString()}원 남음`;
 
       recommendationBanner.classList.add('hidden');
