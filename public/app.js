@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.171 (26-11-22)';
+  const APP_VERSION = 'v1.3.172 (26-11-22)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10시~23시',
     '코스트코': '10시~22시'
@@ -2565,13 +2565,20 @@
 
     return `
       <div class="record-card" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:8px; padding:12px; margin-bottom:12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:6px; margin-bottom:8px;">
-          <span style="font-weight:700; color:var(--text-main); font-size:0.95rem;">${escapeHtml(formattedTime)}</span>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span class="record-mart-badge">${escapeHtml(getDisplayMartName(rec.mart_id))}</span>
+        <div style="display:flex; flex-direction:column; gap:6px; border-bottom:1px solid #e2e8f0; padding-bottom:8px; margin-bottom:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-weight:700; color:var(--text-main); font-size:0.95rem;">${escapeHtml(formattedTime)}</span>
+              <span class="record-mart-badge">${escapeHtml(getDisplayMartName(rec.mart_id))}</span>
+            </div>
             <span style="font-weight:800; color:#dc2626; font-size:1.05rem;">${Number(rec.total_amount).toLocaleString()}원</span>
-            <button type="button" class="btn-load-record" data-id="${rec.id}" title="이 내역을 장바구니로 다시 불러오기" aria-label="불러오기">📥 불러오기</button>
-            <button type="button" class="btn-delete-record" data-id="${rec.id}" data-time="${escapeHtml(rec.time_str || '')}" data-amount="${Number(rec.total_amount || 0)}" style="background:none; border:none; color:#94a3b8; font-size:1rem; cursor:pointer; padding:2px 4px;" title="이 구매내역 삭제" aria-label="삭제">🗑️</button>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <span style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">${itemsArr.length}개 품목</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button type="button" class="btn-load-record" data-id="${rec.id}" title="이 내역을 장바구니로 다시 불러오기" aria-label="불러오기">📥 불러오기</button>
+              <button type="button" class="btn-delete-record" data-id="${rec.id}" data-time="${escapeHtml(rec.time_str || '')}" data-amount="${Number(rec.total_amount || 0)}" style="background:none; border:none; color:#94a3b8; font-size:1rem; cursor:pointer; padding:2px 4px;" title="이 구매내역 삭제" aria-label="삭제">🗑️</button>
+            </div>
           </div>
         </div>
         <ul class="record-item-list">
