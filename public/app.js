@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.176';
+  const APP_VERSION = 'v1.3.177';
   const MART_BUSINESS_HOURS = {
     '이마트': '10시~23시',
     '코스트코': '10시~22시'
