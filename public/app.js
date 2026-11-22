@@ -7,10 +7,10 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.170 (26-11-22)';
+  const APP_VERSION = 'v1.3.171 (26-11-22)';
   const MART_BUSINESS_HOURS = {
-    '이마트': '10:00~23:00',
-    '코스트코': '10:00~22:00'
+    '이마트': '10시~23시',
+    '코스트코': '10시~22시'
   };
   const DEFAULT_BUDGET_EMART = 60000;
   const DEFAULT_BUDGET_EMART_SUNDAY = 50000;
