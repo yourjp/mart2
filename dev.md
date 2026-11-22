@@ -2220,13 +2220,13 @@ README에는 다음 내용을 포함한다.
 
 
 
-\- 장바구니에 품목이 있는 상태에서 "장바구니 저장" 버튼을 누르면 `POST /api/save-record`로 DB 구매내역에 마트명, 구매일시, 품목, 단가, 수량, 총합계가 저장된다.
+\- 장바구니에 품목이 있는 상태에서 "저장"(`💾 저장`) 버튼을 누르면 `POST /api/save-record`로 DB 구매내역에 마트명, 구매일시, 품목, 단가, 수량, 총합계가 저장된다.
 
 
 
 
 
-\- 장바구니가 비어 있을 때 "장바구니 저장"을 누르면 저장하지 않고 안내 문구를 표시한다.
+\- 장바구니가 비어 있을 때 "저장"(`💾 저장`)을 누르면 저장하지 않고 안내 문구를 표시한다.
 
 
 
@@ -2382,7 +2382,7 @@ README에는 다음 내용을 포함한다.
 
 
 
-\- 장바구니 액션 영역에 "장바구니 저장" 버튼을 둔다.
+\- 장바구니 액션 영역에 "저장"(`💾 저장`) 버튼을 둔다.
 
 
 
@@ -2564,7 +2564,7 @@ README에는 다음 내용을 포함한다.
 
 ## 25. 버전 및 수정 날짜 표시 규칙 (Version & Modified Date Policy)
 
-- 앱 코드를 수정할 때마다 `vX.X.X (YY-MM-DD)` 형식(예: `v1.3.164 (26-11-22)`)으로 버전을 올리고 수정한 날짜를 함께 표기한다.
+- 앱 코드를 수정할 때마다 `vX.X.X (YY-MM-DD)` 형식(예: `v1.3.166 (26-11-22)`)으로 버전을 올리고 수정한 날짜를 함께 표기한다.
 - 전광판 우측 상단(`#app-version-badge`), `public/app.js`(`APP_VERSION`), `package.json`, `package-lock.json`, `history.md`에 항상 동기화하여 시각적으로 보여준다.
 
 
@@ -2583,7 +2583,7 @@ README에는 다음 내용을 포함한다.
 
 - 전광판(`dashboard-board`) 영역배치:
   - **좌측 상단**: `⚙️ 예산 설정` 버튼 (`.btn-budget-setting`)
-  - **우측 상단**: 버전 표시 배지 (`#app-version-badge`, 현재 `v1.3.123 (26-08-08)`)
+  - **우측 상단**: 버전 표시 배지 (`#app-version-badge`, 현재 `v1.3.166 (26-11-22)`)
   - **좌측 하단**: `💡 스마트 추천` 버튼 (`.btn-smart-recommendation`)
   - **우측 하단**: Neon DB 로고 배지 (`.db-badge.neon-postgres-badge`)
 - `현재 총합 0원` 표시는 가로 한 줄(Single Line Flex)로 정렬된다.
@@ -2822,7 +2822,7 @@ README에는 다음 내용을 포함한다.
 
 ## 49. 저장된 장바구니 다시 불러오기 기능 규칙 (v1.3.158)
 
-- **최근 내역 불러오기**: 장바구니 목록 헤더의 `📥 불러오기`(`#btn-load-last-record`) 버튼 클릭 시 현재 마트의 가장 최근 `purchase_records` 항목을 조회해 확인 후 장바구니에 복원한다.
+- **최근 내역 불러오기**: 장바구니 헤더(`🛒 장바구니 (N개)`)의 `📥 불러오기`(`#btn-load-last-record`) 버튼 클릭 시 현재 마트의 가장 최근 `purchase_records` 항목을 조회해 확인 후 장바구니에 복원한다.
 - **특정 내역 불러오기**: `📜 구매내역` 모달의 각 구매내역 카드 내 `📥 불러오기`(`.btn-load-record`) 버튼을 클릭하면 해당 내역의 `items_json`을 현재 장바구니로 불러온다.
 - 불러오는 내역의 마트(`rec.mart_id`)가 현재 활성 마트와 다를 경우 현재 장바구니 상태를 먼저 저장한 뒤 대상 마트로 전환하여 복원하며, 복원된 장바구니는 `saveState(true)`로 로컬 캐시와 DB에 즉시 동기화한다.
 
@@ -2849,4 +2849,9 @@ README에는 다음 내용을 포함한다.
 
 - **DB 동기화 최적화**: `/api/db/sync`는 마트별 초기 시딩 및 구매내역 품목 보정(`syncItemsFromPurchaseRecords`)을 서버 수명 주기당 최초 1회(`syncedMartsOnBoot`)만 수행하며, `items`·`cart`·`budget` 조회를 `Promise.all`로 병렬 처리한다. `syncItemsFromPurchaseRecords` 내부에서도 N+1 `getItemWithHistory` 루프 대신 `SELECT name FROM items` 단일 쿼리로 기존 품목을 판별한다.
 - **UI 렌더링 최적화**: `renderQuickChips()`는 `buildQuickChipsKey()`로 이전 렌더링과 동일한 품목 상태일 경우 DOM 재작성을 건너뛰며, `quickChipsList` 단일 이벤트 위임(`bindQuickChipsEventsOnce`)과 1회 일괄 `innerHTML` 갱신을 통해 빠른 표시 속도를 유지한다.
+
+## 55. 전광판 타이틀 제거 및 높이 슬림화 규칙 (v1.3.165 ~ v1.3.166)
+
+- 상단 마트 선택 탭과 중복되는 전광판 타이틀(`#dashboard-mart-label`)을 제거하여 전광판 높이를 줄이고, 휴무일 안내(`.mart-holiday-note`)가 상단 좌우 배지와 겹치지 않도록 상하 여백을 조정한다.
+- 마트 선택 탭(`.tab-btn`)의 `min-height`를 `40px`(`padding: 7px 14px`), 전광판(`.dashboard-board`) 패딩을 `14px 16px 12px`, 총액(`.total-value`)을 `1.95rem`, 상태 배지(`.status-display`) 패딩을 `4px 12px`로 컴팩트하게 유지한다.
 

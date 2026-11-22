@@ -7,7 +7,7 @@
   'use strict';
 
   // --- Constants & Default Data ---
-  const APP_VERSION = 'v1.3.164 (26-11-22)';
+  const APP_VERSION = 'v1.3.166 (26-11-22)';
   const MART_BUSINESS_HOURS = {
     '이마트': '10:00~23:00',
     '코스트코': '10:00~22:00'
@@ -172,7 +172,6 @@
   const tabCostco = document.getElementById('tab-costco');
   const tabCostcoLabel = document.getElementById('tab-costco-label');
   const dashboardBoard = document.getElementById('dashboard-board');
-  const dashboardMartLabel = document.getElementById('dashboard-mart-label');
   const martHolidayNote = document.getElementById('mart-holiday-note');
   const appVersionBadge = document.getElementById('app-version-badge');
   const totalAmountEl = document.getElementById('total-amount');
@@ -521,7 +520,6 @@
 
     if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
     const displayCurrentMartName = getDisplayMartName(currentMart);
-    dashboardMartLabel.textContent = `${displayCurrentMartName} 장보기`;
     if (tabEmartLabel) tabEmartLabel.textContent = isSecondOrFourthSundayToday() ? '이마트 (하남)' : '이마트';
     if (tabCostcoLabel) tabCostcoLabel.textContent = isSecondOrFourthSundayToday() ? '코스트코(휴무)' : '코스트코';
     if (martHolidayNote) {

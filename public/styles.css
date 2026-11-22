@@ -97,8 +97,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 10px 16px;
-  font-size: 1.05rem;
+  padding: 7px 14px;
+  font-size: 1rem;
   font-weight: 700;
   border: none;
   border-radius: var(--radius-sm);
@@ -106,7 +106,7 @@ body {
   color: var(--text-muted);
   cursor: pointer;
   transition: all 0.2s ease;
-  min-height: 48px;
+  min-height: 40px;
 }
 
 .tab-btn * {
@@ -124,7 +124,7 @@ body {
   position: relative;
   background: var(--theme-header-bg);
   color: #ffffff;
-  padding: 24px 20px;
+  padding: 14px 16px 12px;
   text-align: center;
   transition: background 0.3s ease;
   box-shadow: var(--shadow-md);
@@ -132,8 +132,8 @@ body {
 
 .btn-budget-setting {
   position: absolute;
-  top: 10px;
-  left: 14px;
+  top: 8px;
+  left: 12px;
   font-size: 0.75rem;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.9);
@@ -155,7 +155,7 @@ body {
 
 .btn-smart-recommendation {
   position: absolute;
-  bottom: 10px;
+  bottom: 8px;
   left: 12px;
   font-size: 0.72rem;
   font-weight: 700;
@@ -180,8 +180,8 @@ body {
 .version-badge,
 .app-version-badge {
   position: absolute;
-  top: 10px;
-  right: 14px;
+  top: 8px;
+  right: 12px;
   font-size: 0.75rem;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.85);
@@ -195,8 +195,8 @@ body {
 
 .db-badge {
   position: absolute;
-  right: 14px;
-  bottom: 10px;
+  right: 12px;
+  bottom: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -217,16 +217,8 @@ body {
   background: var(--warning-bg) !important;
 }
 
-.dashboard-mart-label {
-  font-size: 0.9rem;
-  font-weight: 600;
-  opacity: 0.85;
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
-}
-
 .mart-holiday-note {
-  margin: -2px 0 8px;
+  margin: 2px 0 4px;
   color: rgba(255, 255, 255, 0.82);
   font-size: 0.72rem;
   font-weight: 700;
@@ -258,19 +250,19 @@ body {
   align-items: baseline;
   justify-content: center;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .total-label {
   display: inline;
-  font-size: 1.05rem;
+  font-size: 0.98rem;
   font-weight: 700;
   opacity: 0.9;
 }
 
 .total-value {
   display: inline;
-  font-size: 2.3rem;
+  font-size: 1.95rem;
   font-weight: 800;
   letter-spacing: -0.5px;
   line-height: 1;
@@ -282,9 +274,9 @@ body {
   gap: 8px;
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(8px);
-  padding: 6px 16px;
+  padding: 4px 12px;
   border-radius: 999px;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 700;
   margin-left: 36px;
 }
